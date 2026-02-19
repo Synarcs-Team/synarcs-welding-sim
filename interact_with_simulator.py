@@ -217,6 +217,8 @@ t_joint_args = {
 }
 
 # create scene
+seed = 0
+np.random.seed(seed)
 table_prim, table_collision_cuboids = create_table(**table_args)
 t_joint_prim, t_joint_collision_cuboids = create_random_tjoint(**t_joint_args)
 collision_space = VisualCuboid(
@@ -230,7 +232,7 @@ collision_space = VisualCuboid(
 # setup robot
 robot_position = (0.2, 0, table_args["dimensions"][2])
 robot_orientation = (0, 0, 0, 1)
-robot_prim = import_robot("./world/ur10_w_realsense.usd", "/World/ur10", robot_position, robot_orientation)
+robot_prim = import_robot("/world/ur10_w_realsense.usd", "/World/ur10", robot_position, robot_orientation)
 manipulator = SingleManipulator(
     prim_path="/World/ur10",
     name="ur10_robot",
@@ -303,7 +305,7 @@ cspace_trajectory_generator = LulaCSpaceTrajectoryGenerator(
 # for obstacle in obstacles:
 #     print(obstacle.prim.IsValid())
 
-test_number = 5
+test_number = 6
 # plan and execute paths
 desired_positions = np.array([
     [0.5, 0.50, 1.5],
@@ -350,18 +352,144 @@ for position_number in range(len(desired_positions)):
         camera_orientations.append(camera_prim.get_world_poses()[1].flatten())
 
 import open3d as o3d
-from PIL import Image
-base_name = "./data"
-import os
-os.mkdir(f"{base_name}/test_{test_number}")
+# from PIL import Image
+# base_name = "./data"
+# import os
+# os.mkdir(f"{base_name}/test_{test_number}")
+# for position_number in range(len(desired_positions)):
+#     pcd = o3d.geometry.PointCloud()
+#     pcd.points = o3d.utility.Vector3dVector(point_clouds[position_number])
+#     o3d.io.write_point_cloud(f"{base_name}/test_{test_number}/test_{test_number}_pcd_{position_number}.pcd", pcd)
+
+#     np.save(f"{base_name}/test_{test_number}/test_{test_number}_camera_position_{position_number}.npy", camera_positions[position_number])
+#     np.save(f"{base_name}/test_{test_number}/test_{test_number}_camera_orientation_{position_number}.npy", camera_orientations[position_number])
+
+#     img = Image.fromarray(rgbs[position_number])
+#     img.save(f"{base_name}/test_{test_number}/test_{test_number}_rgb_{position_number}.jpg")
+
+
+
+# weld seam detection
+merged_pcd = o3d.geometry.PointCloud()
+for pcd in point_clouds:
+    pcd_temp = o3d.geometry.PointCloud()
+    pcd_temp.points = o3d.utility.Vector3dVector(pcd)
+    merged_pcd += pcd_temp
+
+min_bound = np.array([0.65, -0.25, 1.01])
+max_bound = np.array([1.15, 0.25, 1.3])
+bbox = o3d.geometry.AxisAlignedBoundingBox(min_bound, max_bound)
+bbox.color = (1, 0, 0)
+
+cropped_pcd = merged_pcd.crop(bbox)
+world_origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
+
+cropped_pcd.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=5, max_nn=20))
+cropped_pcd.orient_normals_towards_camera_location(camera_location=[0, 0, 3])
+cropped_pcd.paint_uniform_color([0, 0, 1])
+
+# o3d.visualization.draw_geometries([cropped_pcd, world_origin])
+from t_joint_planning import * 
+weld_segment_1, weld_segment_2, weld_segment_1_points, weld_segment_2_points = find_t_joint_paths(cropped_pcd, table_normal=np.array([0, 0, 1]), angle_threshold_deg=10, visualize=False)
+print(weld_segment_1_points)
+# o3d.visualization.draw_geometries([cropped_pcd, weld_segment_1, weld_segment_2, world_origin])
+
+
+# show weld seams
+from isaacsim.util.debug_draw import _debug_draw
+draw = _debug_draw.acquire_debug_draw_interface()
+colors = [(1.0, 0.0, 0.0, 1.0)] 
+sizes = [10.0] 
+
+start_point = [tuple(weld_segment_1_points[0])]
+end_point = [tuple(weld_segment_1_points[1])]
+draw.draw_lines(start_point, end_point, colors, sizes)
+
+start_point = [tuple(weld_segment_2_points[0])]
+end_point = [tuple(weld_segment_2_points[1])]
+draw.draw_lines(start_point, end_point, colors, sizes)
+
+# execute weld seams
+def get_straight_line_path(start_pose, end_pose, steps=20):
+    """
+    start_pose: (pos, ori)
+    end_pose: (pos, ori)
+    """
+    start_pos, start_ori = start_pose
+    end_pos, end_ori = end_pose
+    
+    joint_path = []
+    
+    for i in range(steps):
+        # 1. Linear interpolation of position (LERP)
+        alpha = i / (steps - 1)
+        interp_pos = start_pos + alpha * (end_pos - start_pos)
+        
+        # 2. Spherically interpolate orientation (SLERP)
+        # Note: You can use scipy.spatial.transform.Slerp or manual interpolation
+        # For simple cases, keep start_ori if orientation doesn't change
+        
+        # 3. Solve IK for this specific waypoint
+        # ik_solver should be the ArticulationKinematicsSolver you already set up
+        joint_targets, success = ik_solver.compute_inverse_kinematics(
+            target_position=interp_pos,
+            target_orientation=end_ori
+        )
+        
+        if success:
+            joint_path.append(joint_targets)
+        else:
+            print(f"Warning: IK failed at step {i}")
+            
+    return np.array(joint_path)
+
+print(t_joint_collision_cuboids[1].prim.IsValid())
+planner.disable_obstacle(collision_space)
+planner.add_cuboid(t_joint_collision_cuboids[0], static = True)
+planner.add_cuboid(t_joint_collision_cuboids[1], static = True)
+planner.update_world()
+desired_positions = np.array([
+    [0.5, -0.50, 1.5],
+    weld_segment_1_points[0].flatten(),
+    weld_segment_1_points[1].flatten(),
+    weld_segment_2_points[0].flatten(),
+    weld_segment_2_points[1].flatten(),
+    [0.5, -0.50, 1.5],
+])
+desired_positions = np.array([
+    [0.5, -0.50, 1.5],
+])
+steps = 10
+for i in range(steps):
+    alpha = i / (steps - 1)
+    interp_pos = weld_segment_1_points[0].flatten() + alpha * (weld_segment_1_points[1].flatten() - weld_segment_1_points[0].flatten())
+    desired_positions = np.vstack((desired_positions, interp_pos.reshape(1, -1)))
+for i in range(steps):
+    alpha = i / (steps - 1)
+    interp_pos = weld_segment_2_points[0].flatten() + alpha * (weld_segment_2_points[1].flatten() - weld_segment_2_points[0].flatten())
+    desired_positions = np.vstack((desired_positions, interp_pos.reshape(1, -1)))
+desired_positions = np.vstack((desired_positions, np.array([[0.5, -0.50, 1.5]])))
 for position_number in range(len(desired_positions)):
-    pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(point_clouds[position_number])
-    o3d.io.write_point_cloud(f"{base_name}/test_{test_number}/test_{test_number}_pcd_{position_number}.pcd", pcd)
+    desired_ori_quat = get_orientation_to_target_x_forward(desired_positions[position_number], table_target)
+    planner.set_end_effector_target(desired_positions[position_number], desired_ori_quat)
+    active_joint_positions = manipulator.get_joint_positions()
+    watched_joint_positions = np.array([])
+    path = planner.compute_path(active_joint_positions, watched_joint_positions)
 
-    np.save(f"{base_name}/test_{test_number}/test_{test_number}_camera_position_{position_number}.npy", camera_positions[position_number])
-    np.save(f"{base_name}/test_{test_number}/test_{test_number}_camera_orientation_{position_number}.npy", camera_orientations[position_number])
+    if path is None:
+        print(f"No path found for position:{desired_positions[position_number]}")
+    else:
+        trajectory = cspace_trajectory_generator.compute_c_space_trajectory(path)
 
-    img = Image.fromarray(rgbs[position_number])
-    img.save(f"{base_name}/test_{test_number}/test_{test_number}_rgb_{position_number}.jpg")
+        articulation_trajectory = ArticulationTrajectory(
+        robot_articulation=manipulator,
+        trajectory=trajectory,
+        physics_dt=1/60,
+    )
+        action_sequence = articulation_trajectory.get_action_sequence()
 
+        world.play()
+        for action in action_sequence:
+            manipulator.apply_action(action)
+            world.step(render=True)
+        world.pause()
