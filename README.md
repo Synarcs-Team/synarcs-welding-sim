@@ -31,8 +31,8 @@ If you want to leverage the **NVIDIA Isaac Sim** engine for GPU-accelerated high
 
 1. **Clone the repository**:
    ```bash
-   git clone <repository_url>
-   cd simulator
+   git clone https://github.com/Synarcs-Team/synarcs-welding-sim.git
+   cd synarcs-welding-sim
    ```
 
 2. **Create and Activate a Virtual Environment** (requires Python 3.11 for Isaac Sim compatibility):
