@@ -62,19 +62,15 @@ function updateJointUI() {
   const def = JOINT_DEFS[currentJointType];
   const wrapper = document.getElementById('params-wrapper');
   
-  let html = `<div class="card" style="margin-bottom:0; flex:1;"><h3>${def.name} Parameters</h3>`;
+  let html = `<div class="card"><h3>${def.name} Parameters</h3>`;
   
   def.params.forEach(p => {
     html += `
-      <div class="param-row" style="flex-direction:column; align-items:flex-start; margin-bottom:16px;">
-        <div style="display:flex; justify-content:space-between; width:100%; margin-bottom:6px;">
-          <span class="param-label">${p.label}</span>
-          <div style="display:flex; align-items:center;">
-            <input type="number" id="n_${p.id}" value="${p.default}" step="${p.step}" min="${p.min}" max="${p.max}" onchange="syncParam('${p.id}',this.value)" style="width:58px;"/>
-            <span class="param-unit" style="margin-left:4px;">${p.unit}</span>
-          </div>
-        </div>
-        <input type="range" id="s_${p.id}" min="${p.min}" max="${p.max}" step="${p.step}" value="${p.default}" style="width:100%;" oninput="syncParam('${p.id}',this.value)"/>
+      <div class="param-row">
+        <span class="param-label">${p.label}</span>
+        <input type="range" id="s_${p.id}" min="${p.min}" max="${p.max}" step="${p.step}" value="${p.default}" oninput="syncParam('${p.id}',this.value)"/>
+        <input type="number" id="n_${p.id}" value="${p.default}" step="${p.step}" min="${p.min}" max="${p.max}" onchange="syncParam('${p.id}',this.value)"/>
+        <span class="param-unit">${p.unit}</span>
       </div>
     `;
   });
