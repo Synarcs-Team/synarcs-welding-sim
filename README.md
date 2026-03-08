@@ -2,12 +2,21 @@
 
 **[Synarcs](https://synarcs.com/)** bridges the virtual and real worlds with hybrid simulation environments to accelerate industrial robot deployment, training, and optimization.
 
-This repository contains the **Synarcs Welding Simulator**, a browser-based visualization and testing workspace integrating interactive UI configurations with **NVIDIA Isaac Sim** point cloud generation and processing. It serves as a foundational tool for developing and validating robotic welding autonomy before physical deployment.
+This repository contains the **Synarcs Welding Simulator**, a browser-based visualization and testing workspace integrating interactive UI configurations with **fast, serverless PyBullet simulation** and **high-fidelity NVIDIA Isaac Sim** point cloud generation. It serves as a foundational tool for developing and validating robotic welding autonomy before physical deployment.
+
+## Cloud vs Local Usage
+
+The simulator can be accessed online via our **[Cloud Deployment (Link coming soon)](#)** for lightweight CPU simulations using the PyBullet engine. 
+
+If you want to leverage the **NVIDIA Isaac Sim** engine for GPU-accelerated high-fidelity robotics pipelines, you must run this project **locally** on your own machine. Please follow the installation instructions below to download and set up the local workspace.
 
 ## Features
 
 - **Dynamic Joint Configuration**: Live 3D parameterization of 5 standard AWS welding joints (Tee, Butt, Lap, Corner, Edge).
-- **Automated Scanning**: Headless orchestration of NVIDIA Isaac Sim using Universal Robots UR10 to navigate and capture multi-angle depth point clouds of the joint.
+- **Dual Simulation Engines**: 
+  - **PyBullet**: Lightning-fast, lightweight CPU physics and rendering engine perfect for web deployments and standard laptops.
+  - **NVIDIA Isaac Sim**: High-fidelity, GPU-accelerated robotics simulation platform for advanced testing.
+- **Automated Scanning**: Headless orchestration of the robotic arm to navigate and capture multi-angle depth point clouds of the parameterized joint.
 - **Point Cloud Processing**: Automatic merging and visualization of the scanned point cloud data natively in your browser.
 - **Modular Pipeline**: Built using a modern Python package structure (`src/welding_simulator`) designed to support pluggable simulation engines and computer vision seam detection algorithms.
 
@@ -15,8 +24,8 @@ This repository contains the **Synarcs Welding Simulator**, a browser-based visu
 
 - Ubuntu 22.04 or 24.04
 - Python 3.11
-- NVIDIA GPU (RTX series recommended for Isaac Sim) with latest drivers (Vulkan API support)
-- NVIDIA Isaac Sim (v4+ or equivalent `isaacsim` pip package)
+- (Optional) NVIDIA GPU (RTX series recommended) with latest drivers for Isaac Sim. *Not required for PyBullet.*
+- (Optional) NVIDIA Isaac Sim (v4+ or equivalent `isaacsim` pip package)
 
 ## Installation
 
@@ -59,17 +68,17 @@ Navigate to `http://localhost:8000` in your web browser.
 The interface guides you through three distinct simulation stages:
 
 #### 1. Configure
-Select your joint type and use the parametric sliders to adjust dimensions interactively. View the live 3D preview and click **Save Configuration**.
+Select your joint type, compute engine, and use the parametric sliders to adjust dimensions interactively. View the live 3D preview and click **Save Configuration**.
 
 ![Configure Step View](docs/images/configure_step.png)
 
 #### 2. Scan
-Click **Start Scanning**. This triggers an Isaac Sim headless instance in the background. The UR10 robotic arm is spawned, the custom joint geometry is dynamically mapped, and the arm uses path-planning to navigate to 5 optimal camera viewpoints. Wait for the live progress bar to reach 100%.
+Click **Start Scanning**. This triggers a headless simulation backend orchestrator (PyBullet or Isaac Sim). A robotic arm is spawned in the engine, your custom joint geometry is dynamically mapped to the table, and the camera uses path-planning to navigate to 5 optimal viewpoints around the weld. Wait for the live progress bar to reach 100% and view the captured image results.
 
-![Scan Step in Progress](docs/images/scan_step.png)
+![Scan Step Complete](docs/images/scan_step.png)
 
 #### 3. Process
-Click **Merge Point Clouds**. The backend will process the 5 distinct captures (depth and color) output by the previous step and merge them into a solitary 3D reconstruction. You can inspect the fully merged point cloud directly in the browser viewport.
+Click **Merge Point Clouds**. The backend processes the 5 distinct raw captures output by the previous step and merges them into a solitary 3D reconstruction using Open3D. You can inspect the dense point cloud directly in the browser viewport.
 
 ![Process Step Point Cloud Visualization](docs/images/process_step.png)
 
