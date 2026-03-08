@@ -74,7 +74,7 @@ def build_pybullet_joint(cfg, position):
         b1 = p.createMultiBody(baseMass=0, baseCollisionShapeIndex=p1_id, baseVisualShapeIndex=v1_id, basePosition=[position[0], position[1], position[2] + 0.05])
 
 table_dims = (1.5, 3, 1)
-table_pos  = (0, -1.5, 0)
+table_pos  = (0.75, 0, 0)
 create_table(table_dims, table_pos)
 build_pybullet_joint(cfg, position=(0.75, 0, table_dims[2]))
 

@@ -82,7 +82,7 @@ def build_pybullet_joint(cfg, position):
 # ── Build world ───────────────────────────────────────────────────────────────
 
 table_dims = (1.5, 3, 1)
-table_pos  = (0, -1.5, 0)
+table_pos  = (0.75, 0, 0)
 tableId = create_table(table_dims, table_pos)
 
 joint_parts, joint_bbox = build_pybullet_joint(cfg, position=(0.75, 0, table_dims[2]))
@@ -164,9 +164,27 @@ proj_matrix = p.computeProjectionMatrixFOV(fov, width / height, near, far)
 point_clouds, rgbs, cam_positions, cam_orientations = [], [], [], []
 print(f"[STEP] SCAN_START total={len(scan_positions)}", flush=True)
 
-for i, pos in enumerate(scan_positions):
+# Generate smooth trajectory for video
+trajectory = []
+STATIC_FRAMES = 30
+TRANSITION_FRAMES = 60
+
+for i in range(len(scan_positions)):
+    for f in range(STATIC_FRAMES):
+        is_scan = (f == STATIC_FRAMES - 1)
+        trajectory.append((scan_positions[i], i if is_scan else -1))
+        
+    if i < len(scan_positions) - 1:
+        start_pos = scan_positions[i]
+        end_pos = scan_positions[i+1]
+        for t in np.linspace(0, 1, TRANSITION_FRAMES, endpoint=False):
+            if t == 0: continue
+            interp_pos = start_pos * (1 - t) + end_pos * t
+            trajectory.append((interp_pos, -1))
+
+for frame_count, (pos, scan_index) in enumerate(trajectory):
     # Step simulation to settle
-    for _ in range(10): p.stepSimulation()
+    p.stepSimulation()
     
     # Tweak target position slightly for better lighting and centering
     cam_target = table_target + np.array([0, 0, 0.1])
@@ -188,15 +206,13 @@ for i, pos in enumerate(scan_positions):
     cv2.imwrite(os.path.join(video_frames_dir, f"{frame_idx:05d}.jpg"), bgr)
     frame_idx += 1
     
-    pts, clrs = convert_depth_to_pointcloud(depthImg, rgbImg, view_matrix, proj_matrix, width, height, far, near)
-
-    point_clouds.append((pts, clrs))
-    rgbs.append(rgb_arr)
-    cam_positions.append(pos)
-    
-    # Fake orientation matrix from look-at for compatibility
-    cam_orientations.append([0,0,0,1]) # Placeholder orientation
-    print(f"[STEP] SCAN_POSITION_DONE index={i}", flush=True)
+    if scan_index != -1:
+        pts, clrs = convert_depth_to_pointcloud(depthImg, rgbImg, view_matrix, proj_matrix, width, height, far, near)
+        point_clouds.append((pts, clrs))
+        rgbs.append(rgb_arr)
+        cam_positions.append(pos)
+        cam_orientations.append([0,0,0,1]) # Placeholder orientation
+        print(f"[STEP] SCAN_POSITION_DONE index={scan_index}", flush=True)
 
 # ── Save outputs ──────────────────────────────────────────────────────────────
 print("[STEP] SAVING_DATA", flush=True)
