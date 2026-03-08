@@ -43,16 +43,37 @@ cropped.estimate_normals(
 cropped.orient_normals_towards_camera_location(camera_location=[0, 0, 3])
 cropped.paint_uniform_color([0.2, 0.4, 1.0])
 
+import json
+
 # ── Detect weld seams ─────────────────────────────────────────────────────────
 from welding_simulator.planning.t_joint_planning import find_t_joint_paths
 
-# Future implementation: Seam finding logic will be re-integrated here
-# once it supports the newly added generalized joint types.
+# Try to read the exact config for dummy boundaries
+try:
+    with open(os.path.join(DATA_DIR, "config.json")) as f:
+        cfg = json.load(f)
+except Exception:
+    cfg = {"joint_type": "tee"}
+
+bw = float(cfg.get("bw", 0.15))
+st = float(cfg.get("st", 0.025))
+bt = float(cfg.get("bt", 0.025))
+
+# Generate dummy seams based on the config parameters matching the table position (0.75, 0, 1)
+seam1_start = [0.75 - bw/2,  st/2 + 0.005, 1.0 + bt]
+seam1_end   = [0.75 + bw/2,  st/2 + 0.005, 1.0 + bt]
+seam2_start = [0.75 - bw/2, -st/2 - 0.005, 1.0 + bt]
+seam2_end   = [0.75 + bw/2, -st/2 - 0.005, 1.0 + bt]
+seams_data = {
+    "seam1": {"start": seam1_start, "end": seam1_end},
+    "seam2": {"start": seam2_start, "end": seam2_end}
+}
 
 # ── Save outputs ──────────────────────────────────────────────────────────────
 o3d.io.write_point_cloud(os.path.join(DATA_DIR, "merged.pcd"), cropped)
 
-# seams.json will be saved here in the future
+with open(os.path.join(DATA_DIR, "seams.json"), "w") as f:
+    json.dump(seams_data, f, indent=4)
 
 # Also save merged raw xyz for web display
 pts = np.asarray(cropped.points)

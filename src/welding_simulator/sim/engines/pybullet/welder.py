@@ -87,19 +87,30 @@ except Exception:
     pass
 
 # ── Build waypoint list ───────────────────────────────────────────────────────
-STEPS=10
-home=np.array([0.5, -0.50, 1.5])
-waypoints=[home]
-# Move to seam 1
-for i in range(STEPS):
-    a=i/(STEPS-1)
-    waypoints.append(seg1_start+a*(seg1_end-seg1_start))
-# Move to seam 2
-for i in range(STEPS):
-    a=i/(STEPS-1)
-    waypoints.append(seg2_start+a*(seg2_end-seg2_start))
-waypoints.append(home)
-waypoints=np.array(waypoints)
+FPS = 30
+TRANSITION_SECONDS = 2
+WELD_SECONDS = 4
+home = np.array([0.5, -0.50, 1.5])
+
+waypoints = []
+
+def add_trajectory(start, end, steps):
+    for i in range(steps):
+        a = i / (steps - 1) if steps > 1 else 1.0
+        waypoints.append(start + a * (end - start))
+
+# Home -> Seam1 Start
+add_trajectory(home, seg1_start, FPS * TRANSITION_SECONDS)
+# Weld Seam 1
+add_trajectory(seg1_start, seg1_end, FPS * WELD_SECONDS)
+# Seam1 End -> Seam2 Start
+add_trajectory(seg1_end, seg2_start, FPS * TRANSITION_SECONDS)
+# Weld Seam 2
+add_trajectory(seg2_start, seg2_end, FPS * WELD_SECONDS)
+# Seam2 End -> Home
+add_trajectory(seg2_end, home, FPS * TRANSITION_SECONDS)
+
+waypoints = np.array(waypoints)
 
 print(f"[STEP] WELD_START total={len(waypoints)}", flush=True)
 
