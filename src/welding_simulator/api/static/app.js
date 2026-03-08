@@ -3,7 +3,7 @@
 // ── Environment Routing ───────────────────────────────────────────────────────
 // Detect if running locally or in production (Vercel -> Google Cloud Run)
 const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-const CLOUD_RUN_URL = 'synarcs-welding-sim-backend-something.a.run.app'; // Placeholder Google Cloud Run domain
+const CLOUD_RUN_URL = 'synarcs-welding-sim-915269781586.us-central1.run.app'; // Google Cloud Run backend
 
 const API_BASE = isLocal ? '' : `https://${CLOUD_RUN_URL}`;
 const WS_BASE  = isLocal ? `ws://${location.host}` : `wss://${CLOUD_RUN_URL}`;
