@@ -215,7 +215,23 @@ async def download_pcd():
 # ── Step 4: Weld (WebSocket streams log) ──────────────────────────────────────
 @app.websocket("/ws/weld")
 async def ws_weld(ws: WebSocket):
-    cmd = [str(SIM_PY), "-m", "welding_simulator.sim.engines.isaac_sim.welder"]
+    engine = os.environ.get("SIM_ENGINE", "isaac_sim")
+    try:
+        config_path = ROOT / "config" / "joint_config.json"
+        if config_path.exists():
+            with open(config_path, "r") as f:
+                cfg = json.load(f)
+                if "sim_engine" in cfg:
+                    engine = cfg["sim_engine"]
+    except Exception:
+        pass
+        
+    if engine == "pybullet":
+        module = "welding_simulator.sim.engines.pybullet.welder"
+    else:
+        module = "welding_simulator.sim.engines.isaac_sim.welder"
+        
+    cmd = [str(SIM_PY), "-m", module]
     env = os.environ.copy()
     env["PYTHONPATH"] = str(ROOT / "src")
     await stream_subprocess_with_logging(ws, cmd, "weld", env=env)

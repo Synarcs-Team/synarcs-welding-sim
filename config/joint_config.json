@@ -7,5 +7,6 @@
     "st": 0.025,
     "rotation": 0,
     "tilt": 0,
-    "flip": false
+    "flip": false,
+    "sim_engine": "pybullet"
 }

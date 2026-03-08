@@ -37,7 +37,6 @@ except FileNotFoundError:
 print(f"[STEP] CONFIG_LOADED", flush=True)
 
 # ── Helper functions ──────────────────────────────────────────────────────────
-from welding_simulator.core.joint_factory import create_joint_from_config
 
 def create_table(dimensions, position=(0,0,0)):
     # Create static floor plane
