@@ -55,13 +55,19 @@ def create_table(dimensions, position=(0,0,0)):
 def build_pybullet_joint(cfg, position):
     color = [0.6, 0.6, 0.6, 1.0]
     if cfg.get("joint_type") == "tee":
-        p1_id = p.createCollisionShape(p.GEOM_BOX, halfExtents=[0.25, 0.1, 0.01])
-        v1_id = p.createVisualShape(p.GEOM_BOX, halfExtents=[0.25, 0.1, 0.01], rgbaColor=color)
-        b1 = p.createMultiBody(baseMass=0, baseCollisionShapeIndex=p1_id, baseVisualShapeIndex=v1_id, basePosition=[position[0], position[1], position[2] + 0.01])
+        bw = cfg.get("bw", 0.15)
+        bl = cfg.get("bl", 0.15)
+        bt = cfg.get("bt", 0.025)
+        sh = cfg.get("sh", 0.15)
+        st = cfg.get("st", 0.025)
         
-        p2_id = p.createCollisionShape(p.GEOM_BOX, halfExtents=[0.2, 0.01, 0.1])
-        v2_id = p.createVisualShape(p.GEOM_BOX, halfExtents=[0.2, 0.01, 0.1], rgbaColor=color)
-        b2 = p.createMultiBody(baseMass=0, baseCollisionShapeIndex=p2_id, baseVisualShapeIndex=v2_id, basePosition=[position[0], position[1], position[2] + 0.1 + 0.02])
+        p1_id = p.createCollisionShape(p.GEOM_BOX, halfExtents=[bw/2, bl/2, bt/2])
+        v1_id = p.createVisualShape(p.GEOM_BOX, halfExtents=[bw/2, bl/2, bt/2], rgbaColor=color)
+        b1 = p.createMultiBody(baseMass=0, baseCollisionShapeIndex=p1_id, baseVisualShapeIndex=v1_id, basePosition=[position[0], position[1], position[2] + bt/2])
+        
+        p2_id = p.createCollisionShape(p.GEOM_BOX, halfExtents=[bw/2, st/2, sh/2])
+        v2_id = p.createVisualShape(p.GEOM_BOX, halfExtents=[bw/2, st/2, sh/2], rgbaColor=color)
+        b2 = p.createMultiBody(baseMass=0, baseCollisionShapeIndex=p2_id, baseVisualShapeIndex=v2_id, basePosition=[position[0], position[1], position[2] + bt + sh/2])
     else:
         p1_id = p.createCollisionShape(p.GEOM_BOX, halfExtents=[0.2, 0.15, 0.05])
         v1_id = p.createVisualShape(p.GEOM_BOX, halfExtents=[0.2, 0.15, 0.05], rgbaColor=color)
@@ -113,7 +119,8 @@ for i, pos in enumerate(waypoints):
                                       cameraTargetPosition=pos,
                                       cameraUpVector=[0, 0, 1])
 
-    _, _, rgbImg, _, _ = p.getCameraImage(width, height, view_matrix, proj_matrix)
+    light_dir = [pos[0] - cam_eye[0], pos[1] - cam_eye[1], 2.0]
+    _, _, rgbImg, _, _ = p.getCameraImage(width, height, view_matrix, proj_matrix, shadow=1, lightDirection=light_dir, lightColor=[1, 1, 1])
     
     # Simple video frame capture
     rgb_arr = np.reshape(rgbImg, (height, width, 4))[:,:,:3]

@@ -53,28 +53,25 @@ def create_table(dimensions, position=(0,0,0)):
 
 # Need simple representations for joint pieces in PyBullet
 def build_pybullet_joint(cfg, position):
-    """
-    Since PyBullet doesn't use standard Open3D meshes natively without saving to disk first, 
-    we will simulate the joint shape using simple box primitives just for visual/camera rendering.
-    """
-    # Use the joint factory logic to get overall bounds, but we must manually draw boxes
-    # This acts as a proxy object for the cameras to capture. 
-    # For a true simulation we would write the Open3D mesh to an OBJ and load it.
-    
-    # A generic proxy box based on joint type for now to ensure rendering works.
     color = [0.6, 0.6, 0.6, 1.0] # Metallic grey
     
     if cfg.get("joint_type") == "tee":
+        bw = cfg.get("bw", 0.15)
+        bl = cfg.get("bl", 0.15)
+        bt = cfg.get("bt", 0.025)
+        sh = cfg.get("sh", 0.15)
+        st = cfg.get("st", 0.025)
+        
         # Base plate
-        p1_id = p.createCollisionShape(p.GEOM_BOX, halfExtents=[0.25, 0.1, 0.01])
-        v1_id = p.createVisualShape(p.GEOM_BOX, halfExtents=[0.25, 0.1, 0.01], rgbaColor=color)
-        b1 = p.createMultiBody(baseMass=0, baseCollisionShapeIndex=p1_id, baseVisualShapeIndex=v1_id, basePosition=[position[0], position[1], position[2] + 0.01])
+        p1_id = p.createCollisionShape(p.GEOM_BOX, halfExtents=[bw/2, bl/2, bt/2])
+        v1_id = p.createVisualShape(p.GEOM_BOX, halfExtents=[bw/2, bl/2, bt/2], rgbaColor=color)
+        b1 = p.createMultiBody(baseMass=0, baseCollisionShapeIndex=p1_id, baseVisualShapeIndex=v1_id, basePosition=[position[0], position[1], position[2] + bt/2])
         
         # Vertical plate
-        p2_id = p.createCollisionShape(p.GEOM_BOX, halfExtents=[0.2, 0.01, 0.1])
-        v2_id = p.createVisualShape(p.GEOM_BOX, halfExtents=[0.2, 0.01, 0.1], rgbaColor=color)
-        b2 = p.createMultiBody(baseMass=0, baseCollisionShapeIndex=p2_id, baseVisualShapeIndex=v2_id, basePosition=[position[0], position[1], position[2] + 0.1 + 0.02])
-        return [b1, b2], (0.5, 0.2, 0.22)
+        p2_id = p.createCollisionShape(p.GEOM_BOX, halfExtents=[bw/2, st/2, sh/2])
+        v2_id = p.createVisualShape(p.GEOM_BOX, halfExtents=[bw/2, st/2, sh/2], rgbaColor=color)
+        b2 = p.createMultiBody(baseMass=0, baseCollisionShapeIndex=p2_id, baseVisualShapeIndex=v2_id, basePosition=[position[0], position[1], position[2] + bt + sh/2])
+        return [b1, b2], (bw, bl, bt + sh)
     else:
         # Generic block for other joints as a fallback
         p1_id = p.createCollisionShape(p.GEOM_BOX, halfExtents=[0.2, 0.15, 0.05])
@@ -124,44 +121,44 @@ video_frames_dir = os.path.join(DATA_DIR, "video_frames")
 os.makedirs(video_frames_dir, exist_ok=True)
 frame_idx = 0
 
-def convert_depth_to_pointcloud(depth, rgb, view_matrix, proj_matrix, width, height, far=1.5, near=0.1):
-    # PyBullet returns depth buffer spanning 0-1, need to convert to real z
+def convert_depth_to_pointcloud(depth, rgb, view_matrix, proj_matrix, width, height, far=2.0, near=0.01):
     depth_buffer = np.reshape(depth, [height, width])
-    depthImg = far * near / (far - (far - near) * depth_buffer)
     
-    # Calculate point cloud
-    proj_matrix = np.asarray(proj_matrix).reshape([4, 4], order='F')
-    view_matrix = np.asarray(view_matrix).reshape([4, 4], order='F')
-    inverse_view = np.linalg.inv(view_matrix)
-    inverse_proj = np.linalg.inv(proj_matrix)
+    # Filter out background (PyBullet depth is 1.0 at far plane)
+    valid_mask = depth_buffer < 0.99
     
-    points = []
-    colors = []
+    if not np.any(valid_mask):
+        return np.array([]), np.array([])
+        
+    x, y = np.meshgrid(np.arange(width), np.arange(height))
+    x = x[valid_mask]
+    y = y[valid_mask]
+    z = depth_buffer[valid_mask]
     
-    rgb = np.reshape(rgb, [height, width, 4])[:,:,:3] # drop alpha D
+    # NDC
+    ndc_x = (2.0 * x - width) / width
+    ndc_y = -(2.0 * y - height) / height
+    ndc_z = 2.0 * z - 1.0
+    ndc_pos = np.stack([ndc_x, ndc_y, ndc_z, np.ones_like(ndc_z)], axis=0) # [4, N]
     
-    for y in range(height):
-        for x in range(width):
-            z = depth_buffer[y, x]
-            if z >= 1.0: # Background
-                continue
-            
-            # NDC
-            ndc_x = (2.0 * x - width) / width
-            ndc_y = -(2.0 * y - height) / height # PyBullet Y is inverted
-            
-            ndc_pos = np.array([ndc_x, ndc_y, 2.0 * z - 1.0, 1.0])
-            clip_pos = inverse_proj @ ndc_pos
-            view_pos = clip_pos / clip_pos[3]
-            world_pos = inverse_view @ view_pos
-            
-            points.append(world_pos[:3])
-            colors.append(rgb[y,x] / 255.0)
-            
-    return np.array(points), np.array(colors)
+    # Inverse matrices
+    inv_proj = np.linalg.inv(np.asarray(proj_matrix).reshape([4, 4], order='F'))
+    inv_view = np.linalg.inv(np.asarray(view_matrix).reshape([4, 4], order='F'))
+    
+    clip_pos = inv_proj @ ndc_pos
+    view_pos = clip_pos / clip_pos[3, :]
+    world_pos = inv_view @ view_pos
+    
+    points = world_pos[:3, :].T
+    
+    rgb_buffer = np.reshape(rgb, [height, width, 4])[:,:,:3]
+    colors = rgb_buffer[valid_mask] / 255.0
+    
+    return points, colors
 
 width, height = 800, 600
-fov, near, far = 60, 0.1, 1.5
+fov, near, far = 60, 0.01, 2.0
+proj_matrix = p.computeProjectionMatrixFOV(fov, width / height, near, far)
 proj_matrix = p.computeProjectionMatrixFOV(fov, width / height, near, far)
 
 point_clouds, rgbs, cam_positions, cam_orientations = [], [], [], []
@@ -171,12 +168,19 @@ for i, pos in enumerate(scan_positions):
     # Step simulation to settle
     for _ in range(10): p.stepSimulation()
     
+    # Tweak target position slightly for better lighting and centering
+    cam_target = table_target + np.array([0, 0, 0.1])
+    look_dir = cam_target - pos
+    look_dir = look_dir / (np.linalg.norm(look_dir) + 1e-8)
+    up_vector = [0, 1, 0] if abs(look_dir[2]) > 0.99 else [0, 0, 1]
+    
     view_matrix = p.computeViewMatrix(cameraEyePosition=pos,
-                                      cameraTargetPosition=table_target,
-                                      cameraUpVector=[0, 0, 1])
+                                      cameraTargetPosition=cam_target,
+                                      cameraUpVector=up_vector)
 
-    # Render image
-    _, _, rgbImg, depthImg, _ = p.getCameraImage(width, height, view_matrix, proj_matrix)
+    # Render image with explicit lighting to avoid dark shadows
+    light_dir = [cam_target[0] - pos[0], cam_target[1] - pos[1], 2.0]
+    _, _, rgbImg, depthImg, _ = p.getCameraImage(width, height, view_matrix, proj_matrix, shadow=1, lightDirection=light_dir, lightColor=[1, 1, 1])
     
     # Simple video frame capture
     rgb_arr = np.reshape(rgbImg, (height, width, 4))[:,:,:3]
