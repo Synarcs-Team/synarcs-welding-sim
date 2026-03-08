@@ -1,0 +1,9 @@
+[Desktop Entry]
+Version=1.0
+Name=Welding Simulator
+Comment=Launch Isaac Sim Backend and Frontend
+Exec=bash -c "cd /home/tensi/Mycodes/synarcs-welding-sim && ./scripts/run_webapp.sh"
+Icon=/home/tensi/Mycodes/synarcs-welding-sim/src/welding_simulator/api/static/robot-arm.pngal
+Terminal=false
+Type=Application
+Categories=Development;

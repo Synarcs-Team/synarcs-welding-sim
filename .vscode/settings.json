@@ -3,7 +3,7 @@
     "editor.rulers": [120],
 
     // Enables python language server (seems to work slightly better than jedi)
-    "python.languageServer": "Pylance",
+    "python.languageServer": "Jedi",
     "python.jediEnabled": false,
 
     // Those paths are automatically filled by isaacsim (see: 'python -m isaacsim --help')
