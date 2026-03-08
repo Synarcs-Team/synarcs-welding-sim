@@ -111,8 +111,17 @@ async def configure(params: dict):
 @app.websocket("/ws/scan")
 async def ws_scan(ws: WebSocket):
     # Run scanner via module so it can import welding_simulator.core
-    # Prefer the engine selected by the user in the UI, fallback to the server default
-    engine = os.environ.get("WEB_SIM_ENGINE", os.environ.get("SIM_ENGINE", "isaac_sim"))
+    # Read the engine selected by the user in the UI from the saved config file
+    engine = os.environ.get("SIM_ENGINE", "isaac_sim")
+    try:
+        config_path = ROOT / "config" / "joint_config.json"
+        if config_path.exists():
+            with open(config_path, "r") as f:
+                cfg = json.load(f)
+                if "sim_engine" in cfg:
+                    engine = cfg["sim_engine"]
+    except Exception:
+        pass
     if engine == "pybullet":
         module = "welding_simulator.sim.engines.pybullet.scanner"
     else:
