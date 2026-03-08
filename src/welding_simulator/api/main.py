@@ -98,6 +98,12 @@ async def configure(params: dict):
     config_path = ROOT / "config" / "joint_config.json"
     with open(config_path, "w") as f:
         json.dump(params, f, indent=4)
+        
+    # Set the engine override for the websocket handlers to use later
+    # We store it in os.environ for the existing logic, or just let websocket handlers read config.json
+    if "sim_engine" in params:
+        os.environ["WEB_SIM_ENGINE"] = params["sim_engine"]
+        
     return {"status": "ok", "saved": str(config_path)}
 
 
@@ -105,7 +111,14 @@ async def configure(params: dict):
 @app.websocket("/ws/scan")
 async def ws_scan(ws: WebSocket):
     # Run scanner via module so it can import welding_simulator.core
-    cmd = [str(SIM_PY), "-m", "welding_simulator.sim.engines.isaac_sim.scanner"]
+    # Prefer the engine selected by the user in the UI, fallback to the server default
+    engine = os.environ.get("WEB_SIM_ENGINE", os.environ.get("SIM_ENGINE", "isaac_sim"))
+    if engine == "pybullet":
+        module = "welding_simulator.sim.engines.pybullet.scanner"
+    else:
+        module = "welding_simulator.sim.engines.isaac_sim.scanner"
+        
+    cmd = [str(SIM_PY), "-m", module]
     env = os.environ.copy()
     env["PYTHONPATH"] = str(ROOT / "src")
     await stream_subprocess_with_logging(ws, cmd, "scan", env=env)

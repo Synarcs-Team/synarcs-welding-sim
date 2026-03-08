@@ -259,6 +259,20 @@
             </div>
           </div>
 
+        <div class="card">
+            <h3>Engine selection</h3>
+            <div class="param-row" style="margin-bottom:0;">
+              <select id="sim_engine" style="flex:1;padding:7px 12px;border-radius:8px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:inherit;font-size:.95rem;cursor:pointer;" onchange="updateEngineWarning()">
+                <option value="pybullet">PyBullet (Fast / CPU)</option>
+                <option value="isaac_sim">NVIDIA Isaac Sim (GPU)</option>
+              </select>
+            </div>
+            <div id="isaac-warning" style="display:none;margin-top:10px;padding:10px;background:rgba(248, 113, 113, 0.1);border:1px solid var(--red);border-radius:6px;font-size:.8rem;color:#fca5a5;line-height:1.4;">
+              <b>Note:</b> The cloud-hosted version does not have access to NVIDIA GPUs and cannot run Isaac Sim.<br><br>
+              To use Isaac Sim and robotics pipelines, please run this project locally by following the instructions on the <a href="https://github.com/Synarcs-Team/simulator" target="_blank" style="color:var(--accent);text-decoration:underline;">GitHub Repository</a>.
+            </div>
+          </div>
+
         </div><!-- /step1-left -->
 
         <!-- ── RIGHT: Sticky 3D preview ── -->

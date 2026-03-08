@@ -107,6 +107,12 @@ function getParams() {
   params.tilt     = parseFloat(document.getElementById('n_tilt')?.value    ?? 0);
   params.flip     = _flipActive;
 
+  // Engine selection
+  const engineSelect = document.getElementById('sim_engine');
+  if (engineSelect) {
+    params.sim_engine = engineSelect.value;
+  }
+
   return params;
 }
 
@@ -133,6 +139,24 @@ function toggleFlip() {
     lbl.textContent        = 'Off';
   }
   updatePreview();
+}
+
+function updateEngineWarning() {
+  const select = document.getElementById('sim_engine');
+  const warning = document.getElementById('isaac-warning');
+  if (select && warning) {
+    if (select.value === 'isaac_sim') {
+      // Check if we are running on localhost (meaning they might actually have Isaac Sim)
+      const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      if (!isLocal) {
+        warning.style.display = 'block';
+      } else {
+        warning.style.display = 'none';
+      }
+    } else {
+      warning.style.display = 'none';
+    }
+  }
 }
 
 // ── Plotly 3D Joint Preview ───────────────────────────────────────────────────

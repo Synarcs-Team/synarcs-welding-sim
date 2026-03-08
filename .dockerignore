@@ -1,0 +1,6 @@
+.venv/
+.git/
+__pycache__/
+docs/
+data/latest/
+logs/

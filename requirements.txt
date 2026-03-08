@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+websockets
+numpy
+pillow
+opencv-python
+pydantic>=2.9.2
+pybullet
+glfw
