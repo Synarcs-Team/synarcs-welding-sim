@@ -9,11 +9,11 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
 <style>
   :root {
-    --bg0:    #0f0f17;
-    --bg1:    #181828;
-    --bg2:    #1e1e30;
-    --bg3:    #252538;
-    --border: #2e2e4a;
+    --bg0:    #0a0a0f;
+    --bg1:    #11111a;
+    --bg2:    #1c1c28;
+    --bg3:    #2a2a3c;
+    --border: rgba(255,255,255,0.08);
     --accent: #7c9ef8;
     --accent2:#a78bfa;
     --green:  #4ade80;
@@ -50,7 +50,7 @@
   .panel-title { font-size:1.3rem; font-weight:700; margin-bottom:14px; }
 
   /* ── Cards ── */
-  .card { background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius); padding:14px 18px; margin-bottom:12px; }
+  .card { background:rgba(28, 28, 40, 0.65); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); border:1px solid var(--border); border-radius:16px; padding:18px 22px; margin-bottom:12px; box-shadow:0 8px 32px rgba(0,0,0,0.15); }
   .card h3 { font-size:.82rem; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; margin-bottom:10px; }
 
   /* ── Param row ── */
@@ -67,15 +67,16 @@
   input[type=number]:focus { outline:none; border-color:var(--accent); }
 
   /* ── Step 1 two-column grid ── */
-  .step1-grid { display:flex; gap:14px; }
-  .step1-left { flex:0 0 42%; display:flex; flex-direction:column; gap:10px; overflow-y:auto;
-                max-height:calc(100vh - 108px); padding-right:2px; padding-bottom:60px; }
+  .step1-grid { display:flex; gap:20px; }
+  .step1-left { flex:0 0 55%; display:grid; grid-template-columns:1fr 1fr; gap:16px; align-content:start; overflow-y:auto;
+                max-height:calc(100vh - 108px); padding-right:8px; padding-bottom:60px; }
+  .step1-left > .full-width { grid-column: 1 / -1; }
+  .step1-left .column { display:flex; flex-direction:column; gap:16px; height:100%; }
   .step1-left .card { margin-bottom:0; }
   .step1-right { flex:1; position:sticky; top:0; display:flex; flex-direction:column;
                  height:calc(100vh - 108px); }
-  #preview-card { flex:1; display:flex; flex-direction:column; margin-bottom:0; }
-  #preview-canvas-wrap { flex:1; border-radius:0 0 var(--radius) var(--radius);
-                          min-height:280px; }
+  #preview-card { flex:1; display:flex; flex-direction:column; margin-bottom:0; border:1px solid var(--accent); }
+  #preview-canvas-wrap { flex:1; border-radius:0 0 16px 16px; min-height:280px; }
 
   /* ── Scan button bar — sticky footer ── */
   .scan-bar { position:sticky; bottom:0; padding:10px 0 14px;
@@ -218,58 +219,76 @@
         <!-- ── LEFT: Joint selector + parameters + pose ── -->
         <div class="step1-left">
 
-          <div class="card" style="border-color:var(--accent);">
-            <h3>Joint Type</h3>
+          <!-- TOP: Engine Selection -->
+          <div class="card full-width" style="border-color:var(--accent); box-shadow: 0 0 20px rgba(124, 158, 248, 0.15);">
+            <h3>Simulation Engine</h3>
             <div class="param-row" style="margin-bottom:0;">
-              <select id="joint_type" style="flex:1;padding:7px 12px;border-radius:8px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:inherit;font-size:.95rem;cursor:pointer;" onchange="updateJointUI()">
-                <option value="tee">Tee Joint</option>
-                <option value="butt">Butt Joint</option>
-                <option value="lap">Lap Joint</option>
-                <option value="corner">Corner Joint</option>
-                <option value="edge">Edge Joint</option>
-              </select>
-            </div>
-          </div>
-
-          <!-- Dynamic params populated by JS -->
-          <div id="params-wrapper"></div>
-
-          <div class="card">
-            <h3>Orientation &amp; Pose</h3>
-            <div class="param-row">
-              <span class="param-label" title="Rotates the joint on the table (Z-axis)">Rotation</span>
-              <input type="range" id="s_rotation" min="0" max="360" step="1" value="0" oninput="syncParam('rotation',this.value)"/>
-              <input type="number" id="n_rotation" value="0" step="1" min="0" max="360" onchange="syncParam('rotation',this.value)"/>
-              <span class="param-unit">°</span>
-            </div>
-            <div class="param-row">
-              <span class="param-label" title="Tilts the joint off of horizontal">Tilt</span>
-              <input type="range" id="s_tilt" min="0" max="45" step="1" value="0" oninput="syncParam('tilt',this.value)"/>
-              <input type="number" id="n_tilt" value="0" step="1" min="0" max="45" onchange="syncParam('tilt',this.value)"/>
-              <span class="param-unit">°</span>
-            </div>
-            <div class="param-row" style="align-items:center;margin-bottom:0;">
-              <span class="param-label" title="Flips the joint upside down">Flip</span>
-              <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
-                <div class="toggle-track" id="flip-track" onclick="toggleFlip()" style="width:42px;height:22px;border-radius:11px;background:var(--bg3);border:1px solid var(--border);position:relative;cursor:pointer;transition:.2s;">
-                  <div id="flip-thumb" style="position:absolute;top:3px;left:3px;width:14px;height:14px;border-radius:50%;background:var(--muted);transition:.2s;"></div>
-                </div>
-                <span id="flip-label" style="font-size:.85rem;color:var(--muted);">Off</span>
-              </label>
-            </div>
-          </div>
-
-        <div class="card">
-            <h3>Engine selection</h3>
-            <div class="param-row" style="margin-bottom:0;">
-              <select id="sim_engine" style="flex:1;padding:7px 12px;border-radius:8px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:inherit;font-size:.95rem;cursor:pointer;" onchange="updateEngineWarning()">
-                <option value="pybullet">PyBullet (Fast / CPU)</option>
+              <select id="sim_engine" style="flex:1;padding:9px 12px;border-radius:8px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:inherit;font-size:1rem;cursor:pointer;font-weight:500;" onchange="updateEngineWarning()">
+                <option value="pybullet">PyBullet Engine (Fast / CPU)</option>
                 <option value="isaac_sim">NVIDIA Isaac Sim (GPU)</option>
               </select>
             </div>
-            <div id="isaac-warning" style="display:none;margin-top:10px;padding:10px;background:rgba(248, 113, 113, 0.1);border:1px solid var(--red);border-radius:6px;font-size:.8rem;color:#fca5a5;line-height:1.4;">
+            <div id="isaac-warning" style="display:none;margin-top:12px;padding:12px;background:rgba(248, 113, 113, 0.1);border:1px solid var(--red);border-radius:8px;font-size:.85rem;color:#fca5a5;line-height:1.5;">
               <b>Note:</b> The cloud-hosted version does not have access to NVIDIA GPUs and cannot run Isaac Sim.<br><br>
               To use Isaac Sim and robotics pipelines, please run this project locally by following the instructions on the <a href="https://github.com/Synarcs-Team/simulator" target="_blank" style="color:var(--accent);text-decoration:underline;">GitHub Repository</a>.
+            </div>
+          </div>
+
+          <!-- LEFT COLUMN: Joint Configuration -->
+          <div class="column">
+            <div class="card">
+              <h3>Joint Type</h3>
+              <div class="param-row" style="margin-bottom:0;">
+                <select id="joint_type" style="flex:1;padding:8px 12px;border-radius:8px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:inherit;font-size:.95rem;cursor:pointer;" onchange="updateJointUI()">
+                  <option value="tee">Tee Joint</option>
+                  <option value="butt">Butt Joint</option>
+                  <option value="lap">Lap Joint</option>
+                  <option value="corner">Corner Joint</option>
+                  <option value="edge">Edge Joint</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Dynamic params populated by JS -->
+            <div id="params-wrapper"></div>
+          </div>
+
+          <!-- RIGHT COLUMN: Pose Configuration -->
+          <div class="column">
+            <div class="card" style="flex:1;">
+              <h3>Orientation &amp; Pose</h3>
+              
+              <div class="param-row" style="flex-direction:column; align-items:flex-start; margin-bottom:18px;">
+                <div style="display:flex; justify-content:space-between; width:100%; margin-bottom:6px;">
+                  <span class="param-label" title="Rotates the joint on the table (Z-axis)">Rotation</span>
+                  <div style="display:flex; align-items:center;">
+                    <input type="number" id="n_rotation" value="0" step="1" min="0" max="360" onchange="syncParam('rotation',this.value)" style="width:58px;"/>
+                    <span class="param-unit" style="margin-left:4px;">°</span>
+                  </div>
+                </div>
+                <input type="range" id="s_rotation" min="0" max="360" step="1" value="0" style="width:100%;" oninput="syncParam('rotation',this.value)"/>
+              </div>
+
+              <div class="param-row" style="flex-direction:column; align-items:flex-start; margin-bottom:18px;">
+                <div style="display:flex; justify-content:space-between; width:100%; margin-bottom:6px;">
+                  <span class="param-label" title="Tilts the joint off of horizontal">Tilt</span>
+                  <div style="display:flex; align-items:center;">
+                    <input type="number" id="n_tilt" value="0" step="1" min="0" max="45" onchange="syncParam('tilt',this.value)" style="width:58px;"/>
+                    <span class="param-unit" style="margin-left:4px;">°</span>
+                  </div>
+                </div>
+                <input type="range" id="s_tilt" min="0" max="45" step="1" value="0" style="width:100%;" oninput="syncParam('tilt',this.value)"/>
+              </div>
+
+              <div class="param-row" style="align-items:center;margin-bottom:0;">
+                <span class="param-label" title="Flips the joint upside down">Flip Invert</span>
+                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin-left:auto;">
+                  <div class="toggle-track" id="flip-track" onclick="toggleFlip()" style="width:42px;height:22px;border-radius:11px;background:var(--bg3);border:1px solid var(--border);position:relative;cursor:pointer;transition:.2s;">
+                    <div id="flip-thumb" style="position:absolute;top:3px;left:3px;width:14px;height:14px;border-radius:50%;background:var(--muted);transition:.2s;"></div>
+                  </div>
+                  <span id="flip-label" style="font-size:.85rem;color:var(--muted);width:24px;">Off</span>
+                </label>
+              </div>
             </div>
           </div>
 
