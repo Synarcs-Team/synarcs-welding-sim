@@ -12,6 +12,7 @@ from pathlib import Path
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 import numpy as np
 import datetime
 # main.py is in src/welding_simulator/api/
@@ -22,6 +23,19 @@ LOGS_DIR.mkdir(parents=True, exist_ok=True)
 SIM_PY   = ROOT / ".venv" / "bin" / "python"
 
 app = FastAPI(title="Welding Simulation API")
+
+# Allow requests from the Vercel frontend and local dev
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://synarcs-welding-sim.vercel.app",
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")), name="static")
 
 # Active subprocess (one at a time)
