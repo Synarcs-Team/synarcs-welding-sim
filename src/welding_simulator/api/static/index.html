@@ -178,6 +178,28 @@
                    background:rgba(0,0,0,.5); padding:3px 8px; border-radius:4px; pointer-events:none; }
 
   .hidden { display:none; }
+
+  /* ── Responsive Mobile Styling ── */
+  @media (max-width: 900px) {
+    /* Stack sidebar and main panel */
+    main { grid-template-columns: 1fr; }
+    .sidebar { display: flex; flex-direction: row; gap: 10px; overflow-x: auto; padding: 10px 18px; border-right: none; border-bottom: 1px solid var(--border); }
+    .step-item { padding: 8px 12px; white-space: nowrap; border-left: none; border-bottom: 3px solid transparent; }
+    .step-item.active { border-left: none; border-bottom: 3px solid var(--accent); }
+    .step-desc { display: none; }
+    
+    /* Stack configure panels */
+    .step1-grid { flex-direction: column; }
+    .step1-left { max-height: none; padding-bottom: 10px; }
+    .step1-right { height: 400px; position: relative; }
+    
+    /* Stack scan and process panels */
+    .step2-grid { flex-direction: column; height: auto; }
+    .step2-left { width: 100%; }
+    .step2-right { min-height: 400px; }
+    
+    .panel { height: auto; min-height: calc(100vh - 120px); overflow-y: visible; }
+  }
 </style>
 </head>
 <body>
