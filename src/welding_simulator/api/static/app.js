@@ -345,7 +345,8 @@ function resetSession() {
   document.getElementById('scan-prog').style.width = '0%';
   document.getElementById('scan-count').textContent = 'Position 0 / 5';
   document.getElementById('scan-counter-display').innerHTML = '0<span> / 5</span>';
-  document.getElementById('scan-status-text').textContent = 'Initializing Isaac Sim…';
+  const engineName = (document.getElementById('sim_engine')?.value === 'pybullet') ? 'PyBullet' : 'Isaac Sim';
+  document.getElementById('scan-status-text').textContent = `Initializing ${engineName}…`;
   document.getElementById('scan-badge').textContent = '● Running';
   document.getElementById('scan-badge').className = 'badge badge-run';
   document.getElementById('scan-log').innerHTML = '';
@@ -654,7 +655,8 @@ async function startWeld() {
   document.getElementById('weld-log').innerHTML = '';
   document.getElementById('weld-badge').textContent = '● Running';
   document.getElementById('weld-badge').className = 'badge badge-run';
-  document.getElementById('weld-status-text').textContent = 'Isaac Sim opening…';
+  const weldEngineName = (document.getElementById('sim_engine')?.value === 'pybullet') ? 'PyBullet' : 'Isaac Sim';
+  document.getElementById('weld-status-text').textContent = `${weldEngineName} opening…`;
 
   // Setup Video Box (Show recording state)
   document.getElementById('weld-stream-container').classList.remove('hidden');
