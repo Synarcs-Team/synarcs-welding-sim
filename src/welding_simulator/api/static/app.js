@@ -1,5 +1,13 @@
 // app.js — Frontend logic for the Welding Simulation Web App
 
+// ── Environment Routing ───────────────────────────────────────────────────────
+// Detect if running locally or in production (Vercel -> Google Cloud Run)
+const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const CLOUD_RUN_URL = 'synarcs-welding-sim-backend-something.a.run.app'; // Placeholder Google Cloud Run domain
+
+const API_BASE = isLocal ? '' : `https://${CLOUD_RUN_URL}`;
+const WS_BASE  = isLocal ? `ws://${location.host}` : `wss://${CLOUD_RUN_URL}`;
+
 // ── State ─────────────────────────────────────────────────────────────────────
 let currentStep = 1;
 let pcData      = null;   // cached point cloud response
@@ -404,7 +412,7 @@ async function saveConfig() {
   btn.textContent = '⏳ Saving…';
 
   // Save config
-  await fetch('/api/configure', {
+  await fetch(`${API_BASE}/api/configure`, {
     method: 'POST',
     headers: {'Content-Type':'application/json'},
     body: JSON.stringify(params),
@@ -435,7 +443,7 @@ async function startScan() {
   document.getElementById('scan-recording-badge').textContent = '\u25cf Recording\u2026';
 
   // Connect WebSocket
-  const ws = new WebSocket(`ws://${location.host}/ws/scan`);
+  const ws = new WebSocket(`${WS_BASE}/ws/scan`);
   let scanCount = 0;
   const TOTAL_POS = 5;
 
@@ -488,7 +496,7 @@ async function startScan() {
       document.getElementById('scan-placeholder').style.display = 'none';
       const vid = document.getElementById('scan-video');
       vid.style.display = 'block';
-      vid.src = `/api/scan-video?t=${Date.now()}`;
+      vid.src = `${API_BASE}/api/scan-video?t=${Date.now()}`;
       vid.play().catch(e => console.log('Auto-play prevented', e));
     }
     if (line.startsWith('[EXIT]') && !line.includes('code=0')) {
@@ -502,7 +510,7 @@ async function startScan() {
 }
 
 async function loadScanImages() {
-  const res  = await fetch('/api/scan-images');
+  const res  = await fetch(`${API_BASE}/api/scan-images`);
   const data = await res.json();
   if (!data.images.length) return;
   const grid = document.getElementById('scan-images');
@@ -536,7 +544,7 @@ async function runProcess() {
     if (fakePct < 85) { fakePct += Math.random() * 4; if (progBar) progBar.style.width = fakePct + '%'; }
   }, 400);
 
-  const ws = new WebSocket(`ws://${location.host}/ws/process`);
+  const ws = new WebSocket(`${WS_BASE}/ws/process`);
 
   ws.onmessage = e => {
     const line = e.data;
@@ -588,7 +596,7 @@ function reloadPointCloud(val) {
 }
 
 async function loadPointCloud(maxPts) {
-  const url = maxPts > 0 ? `/api/pointcloud?max_points=${maxPts}` : '/api/pointcloud';
+  const url = maxPts > 0 ? `${API_BASE}/api/pointcloud?max_points=${maxPts}` : `${API_BASE}/api/pointcloud`;
   const res  = await fetch(url);
   if (!res.ok) { appendLog('proc-log', '[ERROR] Could not load point cloud'); return; }
   pcData = await res.json();
@@ -636,7 +644,7 @@ function renderPointCloud(data) {
 }
 
 function downloadPointCloud() {
-  window.open('/api/download-pcd', '_blank');
+  window.open(`${API_BASE}/api/download-pcd`, '_blank');
 }
 
 // ── Step 4: Weld ──────────────────────────────────────────────────────────────
@@ -654,7 +662,7 @@ async function startWeld() {
   document.getElementById('weld-video').src = '';
   document.getElementById('weld-recording-badge').classList.remove('hidden');
 
-  const ws = new WebSocket(`ws://${location.host}/ws/weld`);
+  const ws = new WebSocket(`${WS_BASE}/ws/weld`);
   let wayCount = 0, wayTotal = 0;
 
   ws.onmessage = e => {
@@ -686,7 +694,7 @@ async function startWeld() {
       document.getElementById('weld-recording-badge').classList.add('hidden');
       const vid = document.getElementById('weld-video');
       vid.style.display = 'block';
-      vid.src = `/api/weld-video?t=${Date.now()}`;
+      vid.src = `${API_BASE}/api/weld-video?t=${Date.now()}`;
       vid.play().catch(e => console.log("Auto-play prevented", e));
     }
   };
