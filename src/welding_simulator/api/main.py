@@ -20,7 +20,7 @@ ROOT     = Path(__file__).parent.parent.parent.parent   # simulator/
 DATA_DIR = ROOT / "data" / "latest"
 LOGS_DIR = ROOT / "logs"
 LOGS_DIR.mkdir(parents=True, exist_ok=True)
-SIM_PY   = ROOT / ".venv" / "bin" / "python"
+SIM_PY   = sys.executable
 
 app = FastAPI(title="Welding Simulation API")
 

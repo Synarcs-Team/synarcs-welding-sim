@@ -6,7 +6,7 @@ This repository contains the **Synarcs Welding Simulator**, a browser-based visu
 
 ## Cloud vs Local Usage
 
-The simulator can be accessed online via our **[Cloud Deployment (Link coming soon)](#)** for lightweight CPU simulations using the PyBullet engine. 
+The simulator can be accessed online via our **[Cloud Deployment](https://synarcs-welding-sim.vercel.app)** for lightweight CPU simulations using the PyBullet engine. 
 
 If you want to leverage the **NVIDIA Isaac Sim** engine for GPU-accelerated high-fidelity robotics pipelines, you must run this project **locally** on your own machine. Please follow the installation instructions below to download and set up the local workspace.
 
