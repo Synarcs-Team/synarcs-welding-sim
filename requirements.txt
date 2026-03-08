@@ -1,9 +1,9 @@
-fastapi
-uvicorn
-websockets
-numpy
-pillow
-opencv-python
+fastapi==0.115.0
+uvicorn==0.34.0
+websockets==14.2
+numpy==1.26.4
+Pillow==10.4.0
+opencv-python==4.10.0.84
+open3d==0.18.0
 pydantic>=2.9.2
-pybullet
-glfw
+pybullet==3.2.6
