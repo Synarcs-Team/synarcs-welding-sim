@@ -622,10 +622,9 @@ function renderPointCloud(data) {
       x: points.x, y: points.y, z: points.z,
       name: 'Point Cloud',
       marker: {
-        size: 1.8,
-        color: points.z,
-        colorscale: 'Viridis',
-        opacity: 0.85,
+        size: 2.0,
+        color: points.colors,
+        opacity: 0.95,
       },
     },
   ];

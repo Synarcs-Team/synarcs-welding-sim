@@ -236,15 +236,20 @@ async def pointcloud(max_points: int = 0):
     Return merged point cloud as JSON for Plotly.
     max_points=0 → return all.  max_points=N → subsample to N.
     """
-    xyz_path   = DATA_DIR / "merged_xyz.npy"
+    xyzrgb_path = DATA_DIR / "merged_xyzrgb.npy"
     seams_path = DATA_DIR / "seams.json"
-    if not xyz_path.exists():
+    if not xyzrgb_path.exists():
         return JSONResponse({"error": "No point cloud found. Run process first."}, status_code=404)
 
-    pts = np.load(str(xyz_path))
-    if max_points > 0 and len(pts) > max_points:
-        idx = np.random.choice(len(pts), max_points, replace=False)
-        pts = pts[idx]
+    data = np.load(str(xyzrgb_path))
+    if max_points > 0 and len(data) > max_points:
+        idx = np.random.choice(len(data), max_points, replace=False)
+        data = data[idx]
+
+    pts = data[:, 0:3]
+    colors = data[:, 3:6] * 255.0
+    colors = colors.astype(int)
+    clrs_hex = [f"rgb({r},{g},{b})" for r, g, b in colors]
 
     seams = {}
     if seams_path.exists():
@@ -259,8 +264,9 @@ async def pointcloud(max_points: int = 0):
             "x": pts[:, 0].tolist(),
             "y": pts[:, 1].tolist(),
             "z": pts[:, 2].tolist(),
+            "colors": clrs_hex
         },
-        "total_points": int(len(np.load(str(xyz_path)))),
+        "total_points": int(len(np.load(str(xyzrgb_path)))),
         "shown_points": int(len(pts)),
         "seams": seams,
     })

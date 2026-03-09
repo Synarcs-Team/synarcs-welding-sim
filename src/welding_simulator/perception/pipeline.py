@@ -48,7 +48,6 @@ def run_process(log_cb=None):
         search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=5, max_nn=20)
     )
     cropped.orient_normals_towards_camera_location(camera_location=[0, 0, 3])
-    cropped.paint_uniform_color([0.2, 0.4, 1.0])
 
     import json
 
@@ -80,7 +79,9 @@ def run_process(log_cb=None):
         json.dump(seams_data, f, indent=4)
 
     pts = np.asarray(cropped.points)
-    np.save(os.path.join(DATA_DIR, "merged_xyz.npy"), pts)
+    clrs = np.asarray(cropped.colors)
+    xyzrgb = np.hstack((pts, clrs))
+    np.save(os.path.join(DATA_DIR, "merged_xyzrgb.npy"), xyzrgb)
 
     _log("[STEP] PROCESS_COMPLETE", log_cb)
 
