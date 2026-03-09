@@ -1,11 +1,11 @@
 {
     "joint_type": "tee",
     "bw": 0.15,
-    "bl": 0.15,
-    "bt": 0.025,
+    "bl": 0.26,
+    "bt": 0.031,
     "sh": 0.15,
     "st": 0.025,
-    "rotation": 0,
+    "rotation": 172,
     "tilt": 0,
     "flip": false,
     "sim_engine": "pybullet"

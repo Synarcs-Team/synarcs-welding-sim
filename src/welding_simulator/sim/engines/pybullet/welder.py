@@ -4,45 +4,32 @@ Starts PyBullet headless, rebuilds scene, then moves the camera/robot along the
 detected weld seam paths loaded from data/latest/seams.json to generate a video.
 """
 import sys, os
-sys.stdout.reconfigure(line_buffering=True)
-
 import pybullet as p
 import pybullet_data
 import time
 import json
 import numpy as np
 import cv2
-
-# Connect to PyBullet headless
-physicsClient = p.connect(p.DIRECT)
-p.setAdditionalSearchPath(pybullet_data.getDataPath())
-p.setGravity(0, 0, -9.81)
-
 from pathlib import Path
-ROOT     = str(Path(__file__).resolve().parents[5])
+import subprocess
+
+ROOT = str(Path(__file__).resolve().parents[5])
 DATA_DIR = os.path.join(ROOT, "data", "latest")
 
-# ── Load seams and config ─────────────────────────────────────────────────────
-try:
-    with open(os.path.join(DATA_DIR, "seams.json")) as f:
-        seams = json.load(f)
-except FileNotFoundError:
-    print("[ERROR] No seams.json found. Please run the Process step first.")
-    sys.exit(1)
+def _log(msg, log_cb):
+    if log_cb:
+        log_cb(msg)
+    else:
+        print(msg, flush=True)
 
-try:
-    with open(os.path.join(DATA_DIR, "config.json")) as f:
-        cfg = json.load(f)
-except FileNotFoundError:
-    cfg = {"joint_type": "tee"}
+def get_or_create_engine():
+    if not p.isConnected():
+        p.connect(p.DIRECT)
+        p.setAdditionalSearchPath(pybullet_data.getDataPath())
+    else:
+        p.resetSimulation()
+    p.setGravity(0, 0, -9.81)
 
-seg1_start = np.array(seams.get("seam1", {}).get("start", [0, 0, 0]))
-seg1_end   = np.array(seams.get("seam1", {}).get("end", [0, 0, 0]))
-seg2_start = np.array(seams.get("seam2", {}).get("start", [0, 0, 0]))
-seg2_end   = np.array(seams.get("seam2", {}).get("end", [0, 0, 0]))
-print("[STEP] SEAMS_LOADED", flush=True)
-
-# ── Build Scene ────────────────────────────────────────────────────────────────
 def create_table(dimensions, position=(0,0,0)):
     planeId = p.loadURDF("plane.urdf")
     table_half_extents = [dimensions[0]/2, dimensions[1]/2, dimensions[2]/2]
@@ -73,86 +60,99 @@ def build_pybullet_joint(cfg, position):
         v1_id = p.createVisualShape(p.GEOM_BOX, halfExtents=[0.2, 0.15, 0.05], rgbaColor=color)
         b1 = p.createMultiBody(baseMass=0, baseCollisionShapeIndex=p1_id, baseVisualShapeIndex=v1_id, basePosition=[position[0], position[1], position[2] + 0.05])
 
-table_dims = (1.5, 3, 1)
-table_pos  = (0.75, 0, 0)
-create_table(table_dims, table_pos)
-build_pybullet_joint(cfg, position=(0.75, 0, table_dims[2]))
+def run_weld(cfg=None, seams=None, log_cb=None):
+    if seams is None:
+        try:
+            with open(os.path.join(DATA_DIR, "seams.json")) as f:
+                seams = json.load(f)
+        except FileNotFoundError:
+            _log("[ERROR] No seams.json found. Please run the Process step first.", log_cb)
+            return
 
-# Add dummy robot
-robotStartPos = [0.2, 0, table_dims[2]]
-robotStartOrientation = p.getQuaternionFromEuler([0,0,-np.pi/2])
-try:
-    robotId = p.loadURDF("kuka_iiwa/model.urdf", robotStartPos, robotStartOrientation, useFixedBase=True)
-except Exception:
-    pass
+    if cfg is None:
+        try:
+            with open(os.path.join(DATA_DIR, "config.json")) as f:
+                cfg = json.load(f)
+        except FileNotFoundError:
+            cfg = {"joint_type": "tee"}
 
-# ── Build waypoint list ───────────────────────────────────────────────────────
-FPS = 30
-TRANSITION_SECONDS = 2
-WELD_SECONDS = 4
-home = np.array([0.5, -0.50, 1.5])
+    seg1_start = np.array(seams.get("seam1", {}).get("start", [0, 0, 0]))
+    seg1_end   = np.array(seams.get("seam1", {}).get("end", [0, 0, 0]))
+    seg2_start = np.array(seams.get("seam2", {}).get("start", [0, 0, 0]))
+    seg2_end   = np.array(seams.get("seam2", {}).get("end", [0, 0, 0]))
+    _log("[STEP] SEAMS_LOADED", log_cb)
 
-waypoints = []
+    get_or_create_engine()
 
-def add_trajectory(start, end, steps):
-    for i in range(steps):
-        a = i / (steps - 1) if steps > 1 else 1.0
-        waypoints.append(start + a * (end - start))
+    table_dims = (1.5, 3, 1)
+    table_pos  = (0.75, 0, 0)
+    create_table(table_dims, table_pos)
+    build_pybullet_joint(cfg, position=(0.75, 0, table_dims[2]))
 
-# Home -> Seam1 Start
-add_trajectory(home, seg1_start, FPS * TRANSITION_SECONDS)
-# Weld Seam 1
-add_trajectory(seg1_start, seg1_end, FPS * WELD_SECONDS)
-# Seam1 End -> Seam2 Start
-add_trajectory(seg1_end, seg2_start, FPS * TRANSITION_SECONDS)
-# Weld Seam 2
-add_trajectory(seg2_start, seg2_end, FPS * WELD_SECONDS)
-# Seam2 End -> Home
-add_trajectory(seg2_end, home, FPS * TRANSITION_SECONDS)
+    robotStartPos = [0.2, 0, table_dims[2]]
+    robotStartOrientation = p.getQuaternionFromEuler([0,0,-np.pi/2])
+    try:
+        robotId = p.loadURDF("kuka_iiwa/model.urdf", robotStartPos, robotStartOrientation, useFixedBase=True)
+    except Exception:
+        pass
 
-waypoints = np.array(waypoints)
+    FPS = 2
+    TRANSITION_SECONDS = 1
+    WELD_SECONDS = 2
+    home = np.array([0.5, -0.50, 1.5])
 
-print(f"[STEP] WELD_START total={len(waypoints)}", flush=True)
+    waypoints = []
 
-# Prepare for video recording
-video_frames_dir = os.path.join(DATA_DIR, "video_frames")
-os.makedirs(video_frames_dir, exist_ok=True)
-frame_idx = 0
+    def add_trajectory(start, end, steps):
+        for i in range(int(steps)):
+            a = i / (steps - 1) if steps > 1 else 1.0
+            waypoints.append(start + a * (end - start))
 
-width, height = 800, 600
-fov, near, far = 60, 0.1, 1.5
-proj_matrix = p.computeProjectionMatrixFOV(fov, width / height, near, far)
+    add_trajectory(home, seg1_start, FPS * TRANSITION_SECONDS)
+    add_trajectory(seg1_start, seg1_end, FPS * WELD_SECONDS)
+    add_trajectory(seg1_end, seg2_start, FPS * TRANSITION_SECONDS)
+    add_trajectory(seg2_start, seg2_end, FPS * WELD_SECONDS)
+    add_trajectory(seg2_end, home, FPS * TRANSITION_SECONDS)
 
-for i, pos in enumerate(waypoints):
-    # Make the camera follow the "torch" hovering slightly above the weld point
-    cam_eye = pos + np.array([-0.2, -0.2, 0.2])
-    view_matrix = p.computeViewMatrix(cameraEyePosition=cam_eye,
-                                      cameraTargetPosition=pos,
-                                      cameraUpVector=[0, 0, 1])
+    waypoints = np.array(waypoints)
 
-    light_dir = [pos[0] - cam_eye[0], pos[1] - cam_eye[1], 2.0]
-    _, _, rgbImg, _, _ = p.getCameraImage(width, height, view_matrix, proj_matrix, shadow=1, lightDirection=light_dir, lightColor=[1, 1, 1])
-    
-    # Simple video frame capture
-    rgb_arr = np.reshape(rgbImg, (height, width, 4))[:,:,:3]
-    bgr = cv2.cvtColor(rgb_arr, cv2.COLOR_RGB2BGR)
-    cv2.imwrite(os.path.join(video_frames_dir, f"weld_{frame_idx:05d}.jpg"), bgr)
-    frame_idx += 1
+    _log(f"[STEP] WELD_START total={len(waypoints)}", log_cb)
 
-    p.stepSimulation()
-    print(f"[STEP] WELD_WAYPOINT_DONE index={i}", flush=True)
+    video_frames_dir = os.path.join(DATA_DIR, "video_frames")
+    os.makedirs(video_frames_dir, exist_ok=True)
+    frame_idx = 0
 
-# Encode video
-import subprocess
-print("[STEP] ENCODING_VIDEO", flush=True)
-try:
-    subprocess.run([
-        "ffmpeg", "-y", "-nostdin", "-framerate", "30", "-i", os.path.join(video_frames_dir, "weld_%05d.jpg"),
-        "-c:v", "libx264", "-pix_fmt", "yuv420p", os.path.join(DATA_DIR, "weld_video.mp4")
-    ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL)
-except Exception as e:
-    print(f"    [ERROR] ffmpeg encoding failed: {e}", flush=True)
+    width, height = 800, 600
+    fov, near, far = 60, 0.1, 1.5
+    proj_matrix = p.computeProjectionMatrixFOV(fov, width / height, near, far)
 
-print("[STEP] WELD_COMPLETE", flush=True)
-p.disconnect()
-os._exit(0)
+    for i, pos in enumerate(waypoints):
+        cam_eye = pos + np.array([-0.2, -0.2, 0.2])
+        view_matrix = p.computeViewMatrix(cameraEyePosition=cam_eye,
+                                          cameraTargetPosition=pos,
+                                          cameraUpVector=[0, 0, 1])
+
+        light_dir = [pos[0] - cam_eye[0], pos[1] - cam_eye[1], 2.0]
+        _, _, rgbImg, _, _ = p.getCameraImage(width, height, view_matrix, proj_matrix, shadow=0, lightDirection=light_dir, lightColor=[1, 1, 1])
+        
+        rgb_arr = np.reshape(rgbImg, (height, width, 4))[:,:,:3]
+        bgr = cv2.cvtColor(rgb_arr, cv2.COLOR_RGB2BGR)
+        cv2.imwrite(os.path.join(video_frames_dir, f"weld_{frame_idx:05d}.jpg"), bgr)
+        frame_idx += 1
+
+        p.stepSimulation()
+        _log(f"[STEP] WELD_WAYPOINT_DONE index={i}", log_cb)
+
+    _log("[STEP] ENCODING_VIDEO", log_cb)
+    try:
+        subprocess.run([
+            "ffmpeg", "-y", "-nostdin", "-framerate", "5", "-i", os.path.join(video_frames_dir, "weld_%05d.jpg"),
+            "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", os.path.join(DATA_DIR, "weld_video.mp4")
+        ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL)
+    except Exception as e:
+        _log(f"    [ERROR] ffmpeg encoding failed: {e}", log_cb)
+
+    _log("[STEP] WELD_COMPLETE", log_cb)
+
+if __name__ == "__main__":
+    run_weld()

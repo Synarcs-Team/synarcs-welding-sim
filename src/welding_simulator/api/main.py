@@ -91,6 +91,62 @@ async def stream_subprocess_with_logging(ws: WebSocket, cmd: list[str], log_pref
     finally:
         _proc = None
 
+async def stream_callable_with_logging(ws: WebSocket, func, kwargs, log_prefix: str):
+    """Run a Python function in a thread pool, stream logs to websocket."""
+    await ws.accept()
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    log_path = LOGS_DIR / f"{log_prefix}_{timestamp}.log"
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    
+    queue = asyncio.Queue()
+    loop = asyncio.get_event_loop()
+    
+    def log_cb(msg):
+        loop.call_soon_threadsafe(queue.put_nowait, msg)
+        
+    kwargs["log_cb"] = log_cb
+    
+    with open(log_path, "w") as log_file:
+        log_file.write(f"--- Started: {timestamp} ---\n")
+        log_file.write(f"--- Function: {func.__name__} ---\n\n")
+        log_file.flush()
+        
+        task = loop.run_in_executor(None, lambda: func(**kwargs))
+        
+        while True:
+            get_msg_task = asyncio.create_task(queue.get())
+            done, pending = await asyncio.wait([get_msg_task, task], return_when=asyncio.FIRST_COMPLETED)
+            
+            if get_msg_task in done:
+                msg = get_msg_task.result()
+                log_file.write(msg + "\n")
+                log_file.flush()
+                try:
+                    await ws.send_text(msg)
+                except Exception:
+                    break
+            else:
+                get_msg_task.cancel()
+                while not queue.empty():
+                    msg = queue.get_nowait()
+                    log_file.write(msg + "\n")
+                    try:
+                        await ws.send_text(msg)
+                    except Exception:
+                        pass
+                
+                try:
+                    task.result()
+                    exit_msg = "[EXIT] code=0"
+                except Exception as e:
+                    exit_msg = f"[EXIT] code=1 Exception: {e}"
+                    
+                log_file.write(f"\n{exit_msg}\n")
+                try:
+                    await ws.send_text(exit_msg)
+                except Exception:
+                    pass
+                break
 
 
 # ── Step 1: Configure ─────────────────────────────────────────────────────────
@@ -133,14 +189,14 @@ async def ws_scan(ws: WebSocket):
     except Exception:
         pass
     if engine == "pybullet":
-        module = "welding_simulator.sim.engines.pybullet.scanner"
+        from welding_simulator.sim.engines.pybullet.scanner import run_scan
+        await stream_callable_with_logging(ws, run_scan, {}, "scan")
     else:
         module = "welding_simulator.sim.engines.isaac_sim.scanner"
-        
-    cmd = [str(SIM_PY), "-m", module]
-    env = os.environ.copy()
-    env["PYTHONPATH"] = str(ROOT / "src")
-    await stream_subprocess_with_logging(ws, cmd, "scan", env=env)
+        cmd = [str(SIM_PY), "-m", module]
+        env = os.environ.copy()
+        env["PYTHONPATH"] = str(ROOT / "src")
+        await stream_subprocess_with_logging(ws, cmd, "scan", env=env)
 
 
 # ── Step 2b: Scan Video/Images ────────────────────────────────────────────────
@@ -169,10 +225,8 @@ async def scan_images():
 # ── Step 3: Process (WebSocket streams log) ───────────────────────────────────
 @app.websocket("/ws/process")
 async def ws_process(ws: WebSocket):
-    cmd = [str(SIM_PY), "-m", "welding_simulator.perception.pipeline"]
-    env = os.environ.copy()
-    env["PYTHONPATH"] = str(ROOT / "src")
-    await stream_subprocess_with_logging(ws, cmd, "process", env=env)
+    from welding_simulator.perception.pipeline import run_process
+    await stream_callable_with_logging(ws, run_process, {}, "process")
 
 
 # ── Step 3b: Point cloud data ─────────────────────────────────────────────────
@@ -237,14 +291,14 @@ async def ws_weld(ws: WebSocket):
         pass
         
     if engine == "pybullet":
-        module = "welding_simulator.sim.engines.pybullet.welder"
+        from welding_simulator.sim.engines.pybullet.welder import run_weld
+        await stream_callable_with_logging(ws, run_weld, {}, "weld")
     else:
         module = "welding_simulator.sim.engines.isaac_sim.welder"
-        
-    cmd = [str(SIM_PY), "-m", module]
-    env = os.environ.copy()
-    env["PYTHONPATH"] = str(ROOT / "src")
-    await stream_subprocess_with_logging(ws, cmd, "weld", env=env)
+        cmd = [str(SIM_PY), "-m", module]
+        env = os.environ.copy()
+        env["PYTHONPATH"] = str(ROOT / "src")
+        await stream_subprocess_with_logging(ws, cmd, "weld", env=env)
 
 # ── Step 4b: Weld Video ───────────────────────────────────────────────────────
 @app.get("/api/weld-video")
