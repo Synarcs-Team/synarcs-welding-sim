@@ -36,7 +36,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")), name="static")
+
 
 # Active subprocess (one at a time)
 _proc: subprocess.Popen | None = None
@@ -91,10 +91,6 @@ async def stream_subprocess_with_logging(ws: WebSocket, cmd: list[str], log_pref
     finally:
         _proc = None
 
-
-@app.get("/")
-async def index():
-    return FileResponse(str(Path(__file__).parent / "static" / "index.html"))
 
 
 # ── Step 1: Configure ─────────────────────────────────────────────────────────
@@ -269,3 +265,6 @@ async def status():
         "has_seams":  (DATA_DIR / "seams.json").exists(),
         "scan_count": sum(1 for f in session_files if f.name.startswith("scan_")),
     }
+
+# Mount static files at root (must be at the end to not shadow API routes)
+app.mount("/", StaticFiles(directory=str(Path(__file__).parent / "static"), html=True), name="ui")
