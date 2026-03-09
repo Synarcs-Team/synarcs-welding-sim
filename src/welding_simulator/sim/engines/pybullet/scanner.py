@@ -188,7 +188,9 @@ def run_scan(cfg=None, log_cb=None):
                                           cameraTargetPosition=cam_target,
                                           cameraUpVector=up_vector)
                                           
-        light_dir = [pos[0] - pos[0], pos[1] - pos[1], 2.0] # Assuming cam_eye is pos
+        # Light shines from the camera toward the joint (headlamp model) — ensures
+        # every surface the camera sees is properly illuminated regardless of angle.
+        light_dir = (np.array(cam_target) - np.array(pos)).tolist()
         _, _, rgbImg, depthImg, _ = p.getCameraImage(width, height, view_matrix, proj_matrix, shadow=0, lightDirection=light_dir, lightColor=[1, 1, 1])
         
         rgb_arr = np.reshape(rgbImg, (height, width, 4))[:,:,:3]
