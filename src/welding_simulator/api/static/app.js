@@ -154,9 +154,10 @@ function updateEngineWarning() {
   const warning = document.getElementById('isaac-warning');
   if (select && warning) {
     if (select.value === 'isaac_sim') {
-      // Check if we are running on localhost (meaning they might actually have Isaac Sim)
-      const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-      if (!isLocal) {
+      // Check if we are running locally (localhost, 127.0.0.1, 0.0.0.0, or a local network IP)
+      // If we are NOT on the production Vercel domain or Cloud Run domain, assume local.
+      const isCloud = window.location.hostname.includes('vercel.app') || window.location.hostname.includes('run.app');
+      if (isCloud) {
         warning.style.display = 'block';
       } else {
         warning.style.display = 'none';
