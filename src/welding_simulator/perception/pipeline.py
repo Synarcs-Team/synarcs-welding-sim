@@ -36,9 +36,27 @@ def run_process(log_cb=None):
 
     _log(f"[STEP] MERGE_DONE total_points={len(merged.points)}", log_cb)
 
+    import json
+
+    # ── Read UI Config ────────────────────────────────────────────────────────────
+    try:
+        with open(os.path.join(DATA_DIR, "config.json")) as f:
+            cfg = json.load(f)
+    except Exception:
+        cfg = {"joint_type": "tee"}
+
+    bw = float(cfg.get("bw", 0.15))
+    bl = float(cfg.get("bl", 0.15))
+    bt = float(cfg.get("bt", 0.025))
+    sh = float(cfg.get("sh", 0.15))
+    st = float(cfg.get("st", 0.025))
+    
+    # Calculate bounding box dynamically using the joint's maximum physical extent
+    margin = 0.05
+    min_bound = np.array([0.75 - (bw/2) - margin, -(bl/2) - margin, 1.01])
+    max_bound = np.array([0.75 + (bw/2) + margin,  (bl/2) + margin, 1.0 + bt + sh + margin])
+
     # ── Crop to T-joint area ──────────────────────────────────────────────────────
-    min_bound = np.array([0.65, -0.25, 1.01])
-    max_bound = np.array([1.15,  0.25, 1.30])
     bbox      = o3d.geometry.AxisAlignedBoundingBox(min_bound, max_bound)
     cropped   = merged.crop(bbox)
     _log(f"[STEP] CROP_DONE points={len(cropped.points)}", log_cb)
@@ -49,19 +67,7 @@ def run_process(log_cb=None):
     )
     cropped.orient_normals_towards_camera_location(camera_location=[0, 0, 3])
 
-    import json
-
     # ── Detect weld seams ─────────────────────────────────────────────────────────
-    # Try to read the exact config for dummy boundaries
-    try:
-        with open(os.path.join(DATA_DIR, "config.json")) as f:
-            cfg = json.load(f)
-    except Exception:
-        cfg = {"joint_type": "tee"}
-
-    bw = float(cfg.get("bw", 0.15))
-    st = float(cfg.get("st", 0.025))
-    bt = float(cfg.get("bt", 0.025))
 
     seam1_start = [0.75 - bw/2,  st/2 + 0.005, 1.0 + bt]
     seam1_end   = [0.75 + bw/2,  st/2 + 0.005, 1.0 + bt]
