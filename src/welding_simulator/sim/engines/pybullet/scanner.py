@@ -123,18 +123,30 @@ def run_scan(cfg=None, log_cb=None):
         robotId = None
 
     bx, by, bz = joint_bbox
-    cx, cy = 0.75, 0.0                      
-    z_scan = table_dims[2] + bz + 0.35     
-    y_offset = float(np.clip(by / 2.0 + 0.25, 0.25, 0.50))
-    
+    cx, cy = 0.75, 0.0
+
+    # Calculate key heights from the actual joint geometry
+    joint_top_z  = table_dims[2] + bz          # top of stem
+    joint_mid_z  = table_dims[2] + bz / 2.0    # vertical center of joint
+    joint_base_z = table_dims[2]               # table/base interface
+
+    # Lateral distance: far enough to see the full joint width
+    side_dist = float(np.clip(by / 2.0 + 0.35, 0.30, 0.55))
+
     scan_positions = np.array([
-        [cx,      cy,          z_scan + 0.15],
-        [cx + 0.35, cy + y_offset, z_scan],
-        [cx + 0.35, cy - y_offset, z_scan],
-        [cx - 0.25, cy + y_offset, z_scan],
-        [cx - 0.25, cy - y_offset, z_scan],
+        # Top-down: captures base plate top surface and stem top
+        [cx,        cy,            joint_top_z + 0.40],
+        # Lateral +Y (mid-height): captures the front vertical face of the stem
+        [cx,        cy + side_dist, joint_mid_z + 0.05],
+        # Lateral -Y (mid-height): captures the rear vertical face of the stem
+        [cx,        cy - side_dist, joint_mid_z + 0.05],
+        # Diagonal front-right (above + angled): captures base + stem junction
+        [cx + 0.25, cy + side_dist * 0.6, joint_mid_z + 0.20],
+        # Diagonal back-left (above + angled): captures opposite base + stem junction
+        [cx - 0.20, cy - side_dist * 0.6, joint_mid_z + 0.20],
     ])
-    table_target = np.array([cx, cy, table_dims[2] + bz / 2.0])
+    # Aim at the actual joint centre (not just table midpoint)
+    table_target = np.array([cx, cy, joint_mid_z])
     
     video_frames_dir = os.path.join(DATA_DIR, "video_frames")
     os.makedirs(video_frames_dir, exist_ok=True)

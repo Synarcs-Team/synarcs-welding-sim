@@ -53,7 +53,7 @@ def run_process(log_cb=None):
     
     # Calculate bounding box dynamically using the joint's maximum physical extent
     margin = 0.05
-    min_bound = np.array([0.75 - (bw/2) - margin, -(bl/2) - margin, 1.01])
+    min_bound = np.array([0.75 - (bw/2) - margin, -(bl/2) - margin, 1.001])
     max_bound = np.array([0.75 + (bw/2) + margin,  (bl/2) + margin, 1.0 + bt + sh + margin])
 
     # ── Crop to T-joint area ──────────────────────────────────────────────────────
