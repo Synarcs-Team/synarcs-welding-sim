@@ -575,7 +575,7 @@ async function runProcess() {
       // Footer download button
       document.getElementById('btn-download').classList.remove('hidden');
       document.getElementById('btn-restart').classList.remove('hidden');
-      loadPointCloud(0);
+      loadPointCloud(50000);
     }
   };
   ws.onerror = () => {
@@ -592,11 +592,11 @@ async function runProcess() {
 function updateDensityLabel(val) {
   const n = parseInt(val);
   document.getElementById('density-label').textContent =
-    n === 200000 ? 'All points' : n.toLocaleString() + ' points';
+    n >= 500000 ? 'All points' : n.toLocaleString() + ' points';
 }
 
 function reloadPointCloud(val) {
-  const max = parseInt(val) === 200000 ? 0 : parseInt(val);
+  const max = parseInt(val) >= 500000 ? 0 : parseInt(val);
   loadPointCloud(max);
 }
 
