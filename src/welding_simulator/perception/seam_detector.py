@@ -146,6 +146,11 @@ def toolpath_offsets(A, B, v, n_base, offset):
 def run_seam_detection(log_cb=None):
     _log("[STEP] SEAM_DETECT_START", log_cb)
     
+    # Clear previous results to prevent stale data on failure
+    results_path = os.path.join(DATA_DIR, "seam_results.json")
+    if os.path.exists(results_path):
+        os.remove(results_path)
+    
     try:
         with open(os.path.join(DATA_DIR, "config.json")) as f:
             cfg = json.load(f)
@@ -217,6 +222,9 @@ def run_seam_detection(log_cb=None):
         A2, B2, v2 = seam_segment_from_planes(P, n1, d1, n3, d3)
     except Exception as e:
         _log(f"[ERROR] Seam computation failed: {e}", log_cb)
+        error_res = {"error": f"Seam mathematical computation failed: {e}"}
+        with open(os.path.join(DATA_DIR, "seam_results.json"), "w") as f:
+            json.dump(error_res, f, indent=4)
         return
 
     A1L, B1L, A1R, B1R, side1 = toolpath_offsets(A1, B1, v1, n1, SIDE_OFFSET_MM)

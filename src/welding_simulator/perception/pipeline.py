@@ -22,7 +22,13 @@ def _log(msg, log_cb=None):
 def run_process(log_cb=None):
     _log("[STEP] PROCESS_START", log_cb)
 
-# ── Merge point clouds ────────────────────────────────────────────────────────
+    # Clear out any legacy or advanced seam detection files explicitly before processing
+    for fname in ["seams.json", "seam_results.json"]:
+        fpath = os.path.join(DATA_DIR, fname)
+        if os.path.exists(fpath):
+            os.remove(fpath)
+            
+    # ── Merge point clouds ────────────────────────────────────────────────────────
     pcd_files = sorted([f for f in os.listdir(DATA_DIR) if f.startswith("scan_") and f.endswith(".pcd")])
     if not pcd_files:
         _log("[ERROR] No .pcd files found in data/latest/", log_cb)
