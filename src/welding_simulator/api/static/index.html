@@ -196,6 +196,7 @@
 
     input[type=range] {
       flex: 1;
+      min-width: 0;
       -webkit-appearance: none;
       appearance: none;
       height: 5px;
@@ -238,7 +239,7 @@
     }
 
     .step1-left {
-      flex: 0 0 380px;
+      flex: 1 1 380px;
       display: flex;
       flex-direction: column;
       gap: 10px;
@@ -253,7 +254,7 @@
     }
 
     .step1-right {
-      flex: 1;
+      flex: 1 1 400px;
       position: sticky;
       top: 0;
       display: flex;
@@ -291,7 +292,7 @@
     }
 
     .step2-left {
-      flex: 0 0 340px;
+      flex: 1 1 340px;
       display: flex;
       flex-direction: column;
       gap: 10px;
@@ -299,7 +300,7 @@
     }
 
     .step2-right {
-      flex: 1;
+      flex: 1 1 400px;
       display: flex;
       flex-direction: column;
       min-height: 0;
