@@ -58,13 +58,40 @@ def build_pybullet_joint(cfg, position):
 
     _, q1 = p.multiplyTransforms([0,0,0], q_tilt, [0,0,0], q_flip)
     _, q_final = p.multiplyTransforms([0,0,0], q_rot, [0,0,0], q1)
+    
+    # Calculate bounding box to find the lowest Z point after rotation
+    if cfg.get("joint_type") == "tee":
+        bw, bl = cfg.get("bw", 0.15), cfg.get("bl", 0.15)
+        bt, sh, st = cfg.get("bt", 0.025), cfg.get("sh", 0.15), cfg.get("st", 0.025)
+        bbox_dims = (bw, bl, bt + sh)
+    else:
+        # Default fallback box
+        bbox_dims = (0.4, 0.3, 0.1)
+
+    # 8 corners of the unrotated bounding box (centered at origin for layout)
+    w, l, h = bbox_dims
+    corners = [
+        [w/2, l/2, 0], [-w/2, l/2, 0], [w/2, -l/2, 0], [-w/2, -l/2, 0],
+        [w/2, l/2, h], [-w/2, l/2, h], [w/2, -l/2, h], [-w/2, -l/2, h]
+    ]
+
+    # Find the lowest Z-coordinate among all corners after applying q_final
+    min_z = float('inf')
+    for corner in corners:
+        rotated_corner, _ = p.multiplyTransforms([0,0,0], q_final, corner, [0,0,0,1])
+        if rotated_corner[2] < min_z:
+            min_z = rotated_corner[2]
+
+    # The joint must be shifted UP by abs(min_z) so the lowest point sits exactly at Z=position[2]
+    z_offset = abs(min_z) if min_z < 0 else -min_z
+    adjusted_position = (position[0], position[1], position[2] + z_offset)
 
     color = [0.6, 0.6, 0.6, 1.0]
     
     def _create_part(half_extents, local_pos):
         col_id = p.createCollisionShape(p.GEOM_BOX, halfExtents=half_extents)
         vis_id = p.createVisualShape(p.GEOM_BOX, halfExtents=half_extents, rgbaColor=color)
-        world_pos, world_ori = p.multiplyTransforms(position, q_final, local_pos, [0,0,0,1])
+        world_pos, world_ori = p.multiplyTransforms(adjusted_position, q_final, local_pos, [0,0,0,1])
         return p.createMultiBody(baseMass=0, baseCollisionShapeIndex=col_id, baseVisualShapeIndex=vis_id, basePosition=world_pos, baseOrientation=world_ori)
 
     if cfg.get("joint_type") == "tee":
