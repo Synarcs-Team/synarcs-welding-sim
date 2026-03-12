@@ -43,7 +43,30 @@ def create_table(dimensions, position=(0,0,0)):
     return tableId
 
 def build_pybullet_joint(cfg, position):
+    import numpy as np
+    rotation_deg = float(cfg.get("rotation", 0))
+    tilt_deg     = float(cfg.get("tilt",     0))
+    flip         = bool(cfg.get("flip",      False))
+
+    flip_rad  = np.pi if flip else 0.0
+    tilt_rad  = np.deg2rad(tilt_deg)
+    rot_rad   = np.deg2rad(rotation_deg)
+
+    q_flip = p.getQuaternionFromEuler([0, flip_rad, 0])
+    q_tilt = p.getQuaternionFromEuler([tilt_rad, 0, 0])
+    q_rot  = p.getQuaternionFromEuler([0, 0, rot_rad])
+
+    _, q1 = p.multiplyTransforms([0,0,0], q_tilt, [0,0,0], q_flip)
+    _, q_final = p.multiplyTransforms([0,0,0], q_rot, [0,0,0], q1)
+
     color = [0.6, 0.6, 0.6, 1.0]
+    
+    def _create_part(half_extents, local_pos):
+        col_id = p.createCollisionShape(p.GEOM_BOX, halfExtents=half_extents)
+        vis_id = p.createVisualShape(p.GEOM_BOX, halfExtents=half_extents, rgbaColor=color)
+        world_pos, world_ori = p.multiplyTransforms(position, q_final, local_pos, [0,0,0,1])
+        return p.createMultiBody(baseMass=0, baseCollisionShapeIndex=col_id, baseVisualShapeIndex=vis_id, basePosition=world_pos, baseOrientation=world_ori)
+
     if cfg.get("joint_type") == "tee":
         bw = cfg.get("bw", 0.15)
         bl = cfg.get("bl", 0.15)
@@ -51,18 +74,11 @@ def build_pybullet_joint(cfg, position):
         sh = cfg.get("sh", 0.15)
         st = cfg.get("st", 0.025)
         
-        p1_id = p.createCollisionShape(p.GEOM_BOX, halfExtents=[bw/2, bl/2, bt/2])
-        v1_id = p.createVisualShape(p.GEOM_BOX, halfExtents=[bw/2, bl/2, bt/2], rgbaColor=color)
-        b1 = p.createMultiBody(baseMass=0, baseCollisionShapeIndex=p1_id, baseVisualShapeIndex=v1_id, basePosition=[position[0], position[1], position[2] + bt/2])
-        
-        p2_id = p.createCollisionShape(p.GEOM_BOX, halfExtents=[bw/2, st/2, sh/2])
-        v2_id = p.createVisualShape(p.GEOM_BOX, halfExtents=[bw/2, st/2, sh/2], rgbaColor=color)
-        b2 = p.createMultiBody(baseMass=0, baseCollisionShapeIndex=p2_id, baseVisualShapeIndex=v2_id, basePosition=[position[0], position[1], position[2] + bt + sh/2])
+        b1 = _create_part([bw/2, bl/2, bt/2], [0, 0, bt/2])
+        b2 = _create_part([bw/2, st/2, sh/2], [0, 0, bt + sh/2])
         return [b1, b2], (bw, bl, bt + sh)
     else:
-        p1_id = p.createCollisionShape(p.GEOM_BOX, halfExtents=[0.2, 0.15, 0.05])
-        v1_id = p.createVisualShape(p.GEOM_BOX, halfExtents=[0.2, 0.15, 0.05], rgbaColor=color)
-        b1 = p.createMultiBody(baseMass=0, baseCollisionShapeIndex=p1_id, baseVisualShapeIndex=v1_id, basePosition=[position[0], position[1], position[2] + 0.05])
+        b1 = _create_part([0.2, 0.15, 0.05], [0, 0, 0.05])
         return [b1], (0.4, 0.3, 0.1)
 
 def convert_depth_to_pointcloud(depth, rgb, view_matrix, proj_matrix, width, height, far=2.0, near=0.01):

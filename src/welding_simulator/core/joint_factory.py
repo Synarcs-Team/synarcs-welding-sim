@@ -15,6 +15,13 @@ def _euler_to_quat(roll, pitch, yaw):
     z = cr*cp*sy - sr*sp*cy
     return np.array([w, x, y, z])
 
+def _qmul(a, b):
+    aw,ax,ay,az = a; bw,bx,by,bz = b
+    return np.array([aw*bw-ax*bx-ay*by-az*bz,
+                     aw*bx+ax*bw+ay*bz-az*by,
+                     aw*by-ax*bz+ay*bw+az*bx,
+                     aw*bz+ax*by-ay*bx+az*bw])
+
 
 def create_joint_from_config(cfg: dict, position=(0, 0, 0), name="weld_joint"):
     """
@@ -37,13 +44,6 @@ def create_joint_from_config(cfg: dict, position=(0, 0, 0), name="weld_joint"):
     q_flip = _euler_to_quat(0, flip_rad, 0)   # Y-axis flip (upside-down)
     q_tilt = _euler_to_quat(tilt_rad, 0, 0)   # X-axis tilt (forward lean)
     q_rot  = _euler_to_quat(0, 0, rot_rad)    # Z-axis rotation (spin on table)
-
-    def _qmul(a, b):
-        aw,ax,ay,az = a; bw,bx,by,bz = b
-        return np.array([aw*bw-ax*bx-ay*by-az*bz,
-                         aw*bx+ax*bw+ay*bz-az*by,
-                         aw*by-ax*bz+ay*bw+az*bx,
-                         aw*bz+ax*by-ay*bx+az*bw])
 
     ori = _qmul(q_rot, _qmul(q_tilt, q_flip))
 
