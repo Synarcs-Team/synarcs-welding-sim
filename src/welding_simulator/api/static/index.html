@@ -775,7 +775,7 @@
     <span>🔩</span>
     <div>
       <h1>Robotic Welding Simulator</h1>
-      <div class="subtitle">Configure → Scan → Process → Weld</div>
+      <div class="subtitle">Configure → Scan → Process → Detect → Weld</div>
     </div>
   </header>
 
@@ -801,6 +801,23 @@
         <div>
           <div class="step-label">Process</div>
           <div class="step-desc">Merge & visualize point clouds</div>
+        </div>
+      </div>
+      <div class="step-item" data-step="4" onclick="goStep(4)">
+        <div class="step-num" id="sn4">4</div>
+        <div>
+          <div class="step-label">Detect</div>
+          <div class="step-desc">Find weld seams in point cloud</div>
+        </div>
+      </div>
+      <div class="step-item" data-step="5" onclick="goStep(5)">
+        <div class="step-num" id="sn5">5</div>
+        <div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <div class="step-label">Weld</div>
+            <span class="badge" style="background:#3a1a3a;color:#f472b6;font-size:0.6rem;padding:1px 6px;">SOON</span>
+          </div>
+          <div class="step-desc">Simulate robot welding</div>
         </div>
       </div>
     </nav>
@@ -1069,14 +1086,83 @@
 
         <!-- Sticky footer -->
         <div class="scan-bar" style="display:flex;align-items:center;gap:12px;">
-          <button class="btn btn-primary hidden" id="btn-download" onclick="downloadPointCloud()">⬇ Download Point Cloud
-            (.pcd)</button>
-          <button class="btn btn-secondary hidden" id="btn-restart" onclick="goStep(1)">↺ New Session</button>
+          <button class="btn btn-primary hidden" id="btn-download" onclick="downloadPointCloud()">⬇ Download (.pcd)</button>
+          <button class="btn btn-secondary hidden" id="btn-to-detect" onclick="goStep(4)" disabled style="padding:12px 32px;font-size:1rem;">Detect Seams →</button>
         </div>
       </div>
 
+      <!-- ── Step 4: Detect Seams ── -->
+      <div id="step4" class="hidden">
+        <div class="panel-title">Detect Seams</div>
 
-    </div><!-- /panel -->
+        <div class="step2-grid">
+          <!-- LEFT: detection action + results -->
+          <div class="step2-left">
+            <div class="card">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                <h3 style="margin-bottom:0;">Seam Detection</h3>
+                <span id="detect-badge" class="badge badge-wait hidden">✓ Detected</span>
+              </div>
+              <div id="detect-status-text" style="font-size:.88rem;color:var(--muted);margin-bottom:14px;">Apply RANSAC plane fitting to detect weld seams.</div>
+              <button class="btn btn-primary" id="btn-detect" onclick="startSeamDetection()" style="width:100%;justify-content:center;">▶ Detect Seams</button>
+              <div id="detect-progress-wrap" style="display:none;margin-top:12px;">
+                <div class="progress-bar">
+                  <div class="progress-fill" id="detect-prog" style="width:0%;animation:none;"></div>
+                </div>
+                <div style="font-size:.78rem;color:var(--muted);margin-top:4px;" id="detect-progress-label">Detecting…</div>
+              </div>
+            </div>
+
+            <div id="seam-results-card" class="card hidden">
+              <h3>Detected Seams</h3>
+              <div id="seam-results" style="font-size:.82rem;color:var(--text);line-height:1.6;">
+                <!-- Filled via JS -->
+              </div>
+            </div>
+            
+            <div id="seam-planes-card" class="card hidden">
+              <h3>Fitted Planes</h3>
+              <div id="seam-planes" style="font-size:.82rem;color:var(--muted);line-height:1.6;">
+                <!-- Filled via JS -->
+              </div>
+            </div>
+          </div><!-- /step2-left -->
+
+          <!-- RIGHT: 3D viewer -->
+          <div class="step2-right">
+            <div class="card" style="padding:14px 18px;">
+              <h3>3D Seam Visualization</h3>
+              <div id="detect-pc-placeholder" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;min-height:300px;">
+                <div class="pulse-ring" style="width:90px;height:90px;"><span style="font-size:2.2rem;">🔍</span></div>
+                <div style="color:var(--muted);font-size:.88rem;text-align:center;">Run <strong style="color:var(--text);">Detect Seams</strong> to see results</div>
+              </div>
+              <div id="detect-pc-section" style="display:none;flex:1;flex-direction:column;">
+                <div id="detect-plotly-container" style="flex:1;min-height:400px;border-radius:var(--radius);overflow:hidden;background:#09090f;"></div>
+              </div>
+            </div>
+          </div><!-- /step2-right -->
+          
+          <div id="detect-log" style="display:none;position:absolute;pointer-events:none;"></div>
+        </div>
+
+        <div class="scan-bar" style="display:flex;align-items:center;gap:12px;">
+          <button class="btn btn-secondary hidden" id="btn-to-weld" onclick="goStep(5)" disabled style="padding:12px 32px;font-size:1rem;">Proceed to Weld →</button>
+        </div>
+      </div>
+
+      <!-- ── Step 5: Weld ── -->
+      <div id="step5" class="hidden">
+        <div class="panel-title">Robot Welding Simulation</div>
+        
+        <div class="card" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:400px;text-align:center;gap:20px;">
+          <div style="font-size:4rem;">🏗️</div>
+          <div>
+            <h2 style="font-size:1.8rem;margin-bottom:10px;color:var(--accent2);">Coming Soon</h2>
+            <p style="color:var(--muted);max-width:400px;margin:0 auto;line-height:1.6;">The intelligent welding simulation module is currently under development. Soon you will be able to simulate precise robot toolpaths based on the detected seams.</p>
+          </div>
+          <button class="btn btn-secondary" onclick="goStep(1)">↺ Back to Start</button>
+        </div>
+      </div>
   </main>
 
   <script src="./app.js"></script>

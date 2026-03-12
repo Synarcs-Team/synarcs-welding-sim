@@ -280,9 +280,28 @@ async def download_pcd():
         return JSONResponse({"error": "No point cloud file found. Run process first."}, status_code=404)
     return FileResponse(str(pcd_path), media_type="application/octet-stream", filename="merged.pcd")
 
+# ── Step 4: Seam Detection (WebSocket streams log) ────────────────────────────
+@app.websocket("/ws/seam-detect")
+async def ws_seam_detect(ws: WebSocket):
+    from welding_simulator.perception.seam_detector import run_seam_detection
+    await stream_callable_with_logging(ws, run_seam_detection, {}, "seam_detect")
+
+@app.get("/api/seam-results")
+async def seam_results():
+    """Return the advanced seam detection results."""
+    results_path = DATA_DIR / "seam_results.json"
+    if not results_path.exists():
+        return JSONResponse({"error": "Seam results not found."}, status_code=404)
+    try:
+        with open(results_path) as f:
+            data = json.load(f)
+        return JSONResponse(data)
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
 
 
-# ── Step 4: Weld (WebSocket streams log) ──────────────────────────────────────
+
+# ── Step 5: Weld (WebSocket streams log) ──────────────────────────────────────
 @app.websocket("/ws/weld")
 async def ws_weld(ws: WebSocket):
     engine = os.environ.get("SIM_ENGINE", "isaac_sim")
@@ -306,7 +325,7 @@ async def ws_weld(ws: WebSocket):
         env["PYTHONPATH"] = str(ROOT / "src")
         await stream_subprocess_with_logging(ws, cmd, "weld", env=env)
 
-# ── Step 4b: Weld Video ───────────────────────────────────────────────────────
+# ── Step 5b: Weld Video ───────────────────────────────────────────────────────
 @app.get("/api/weld-video")
 async def weld_video():
     """Return the generated weld video."""
@@ -321,8 +340,9 @@ async def status():
     session_files = list(DATA_DIR.glob("*")) if DATA_DIR.exists() else []
     return {
         "has_scan":   any(f.name.startswith("scan_") for f in session_files),
-        "has_merged": (DATA_DIR / "merged_xyz.npy").exists(),
+        "has_merged": (DATA_DIR / "merged_xyz.npy").exists() or (DATA_DIR / "merged_xyzrgb.npy").exists(),
         "has_seams":  (DATA_DIR / "seams.json").exists(),
+        "has_seam_results": (DATA_DIR / "seam_results.json").exists(),
         "scan_count": sum(1 for f in session_files if f.name.startswith("scan_")),
     }
 

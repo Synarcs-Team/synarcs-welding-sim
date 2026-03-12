@@ -338,7 +338,7 @@ function updatePreview() {
 function goStep(n) {
   if (n === 1) resetSession();
   currentStep = n;
-  [1, 2, 3].forEach(i => {
+  [1, 2, 3, 4, 5].forEach(i => {
     document.getElementById(`step${i}`).classList.toggle('hidden', i !== n);
     document.querySelector(`[data-step="${i}"]`).classList.toggle('active', i === n);
   });
@@ -389,6 +389,29 @@ function resetSession() {
   document.getElementById('pc-stats-card')?.classList.add('hidden');
   document.getElementById('density-card')?.classList.add('hidden');
   document.getElementById('btn-download')?.classList.add('hidden');
+  const btnDetect = document.getElementById('btn-to-detect');
+  if (btnDetect) { btnDetect.classList.add('hidden'); btnDetect.disabled = true; btnDetect.textContent = 'Detect Seams →'; btnDetect.classList.remove('btn-primary'); btnDetect.classList.add('btn-secondary'); }
+
+  // Reset detect page
+  const btnRunDetect = document.getElementById('btn-detect');
+  if (btnRunDetect) { btnRunDetect.disabled = false; btnRunDetect.textContent = '▶ Detect Seams'; }
+  const detStatus = document.getElementById('detect-status-text');
+  if (detStatus) detStatus.textContent = 'Apply RANSAC plane fitting to detect weld seams.';
+  const detProgWrap = document.getElementById('detect-progress-wrap');
+  if (detProgWrap) detProgWrap.style.display = 'none';
+  const detProgBar = document.getElementById('detect-prog');
+  if (detProgBar) detProgBar.style.width = '0%';
+  document.getElementById('detect-badge')?.classList.add('hidden');
+  const dph = document.getElementById('detect-pc-placeholder');
+  if (dph) dph.style.display = 'flex';
+  const dpcs = document.getElementById('detect-pc-section');
+  if (dpcs) dpcs.style.display = 'none';
+  document.getElementById('seam-results-card')?.classList.add('hidden');
+  document.getElementById('seam-planes-card')?.classList.add('hidden');
+  const btnWeld = document.getElementById('btn-to-weld');
+  if (btnWeld) { btnWeld.classList.add('hidden'); btnWeld.disabled = true; btnWeld.textContent = 'Proceed to Weld →'; btnWeld.classList.remove('btn-primary'); btnWeld.classList.add('btn-secondary'); }
+
+  // Reset weld page (formerly step 4)
   document.getElementById('btn-restart')?.classList.add('hidden');
 }
 
@@ -572,9 +595,14 @@ async function runProcess() {
       // Show stats + density cards
       document.getElementById('pc-stats-card')?.classList.remove('hidden');
       document.getElementById('density-card')?.classList.remove('hidden');
-      // Footer download button
-      document.getElementById('btn-download').classList.remove('hidden');
-      document.getElementById('btn-restart').classList.remove('hidden');
+      // Footer detect button
+      const btnDetect = document.getElementById('btn-to-detect');
+      if (btnDetect) {
+          btnDetect.classList.remove('hidden');
+          btnDetect.disabled = false;
+          btnDetect.classList.add('btn-primary');
+          btnDetect.classList.remove('btn-secondary');
+      }
       loadPointCloud(50000);
     }
   };
@@ -640,18 +668,195 @@ function renderPointCloud(data) {
       zaxis: { gridcolor: '#1e1e30', zerolinecolor: '#2e2e4a', title: 'Z (m)' },
       camera: { eye: { x: 1.8, y: 1.8, z: 1.2 } },
     },
-    legend: { bgcolor: '#181828', bordercolor: '#2e2e4a', borderwidth: 1 },
     margin: { l: 0, r: 0, t: 10, b: 0 },
   };
 
-  Plotly.newPlot('plotly-container', traces, layout, { responsive: true, displaylogo: false });
+  Plotly.react('plotly-container', traces, layout, { responsive: true, displaylogo: false });
 }
 
 function downloadPointCloud() {
   window.open(`${API_BASE}/api/download-pcd`, '_blank');
 }
 
-// ── Step 4: Weld ──────────────────────────────────────────────────────────────
+// ── Step 4: Seam Detection ──────────────────────────────────────────────────
+async function startSeamDetection() {
+  const btn = document.getElementById('btn-detect');
+  btn.disabled = true;
+  btn.textContent = '⏳ Detecting…';
+  document.getElementById('detect-log').innerHTML = '';
+  document.getElementById('detect-status-text').textContent = 'Running RANSAC plane fitting…';
+
+  const progWrap = document.getElementById('detect-progress-wrap');
+  const progBar = document.getElementById('detect-prog');
+  const progLbl = document.getElementById('detect-progress-label');
+  if (progWrap) progWrap.style.display = 'block';
+
+  let fakePct = 0;
+  const fakeTimer = setInterval(() => {
+    if (fakePct < 85) { fakePct += Math.random() * 8; if (progBar) progBar.style.width = fakePct + '%'; }
+  }, 300);
+
+  const ws = new WebSocket(`${WS_BASE}/ws/seam-detect`);
+
+  ws.onmessage = async e => {
+    const line = e.data;
+    appendLog('detect-log', line);
+    if (line.trim() && !line.startsWith('[') && progLbl)
+      progLbl.textContent = line.trim().substring(0, 60);
+
+    if (line.includes('SEAM_DETECT_COMPLETE')) {
+        clearInterval(fakeTimer);
+        if (progBar) progBar.style.width = '100%';
+        if (progLbl) progLbl.textContent = 'Done!';
+        btn.textContent = '✓ Detected';
+        document.getElementById('detect-status-text').textContent = 'Weld seams successfully detected.';
+        document.getElementById('detect-badge').classList.remove('hidden');
+        
+        const ph = document.getElementById('detect-pc-placeholder');
+        if (ph) ph.style.display = 'none';
+        const pcs = document.getElementById('detect-pc-section');
+        if (pcs) pcs.style.display = 'flex';
+        
+        document.getElementById('seam-results-card')?.classList.remove('hidden');
+        document.getElementById('seam-planes-card')?.classList.remove('hidden');
+        
+        const btnWeld = document.getElementById('btn-to-weld');
+        if (btnWeld) {
+            btnWeld.disabled = false;
+            btnWeld.classList.remove('hidden');
+            btnWeld.classList.add('btn-primary');
+            btnWeld.classList.remove('btn-secondary');
+            btnWeld.textContent = 'Proceed to Weld (Coming Soon) →';
+        }
+        
+        // Load combined point cloud and seams
+        await loadSeamResults();
+    }
+  };
+  ws.onerror = () => {
+    clearInterval(fakeTimer);
+    appendLog('detect-log', '[ERROR] WebSocket failed');
+    btn.disabled = false;
+    btn.textContent = '▶ Detect Seams';
+    document.getElementById('detect-status-text').textContent = 'Error — please retry.';
+  };
+}
+
+async function loadSeamResults() {
+    // 1. Fetch Seam Results
+    const resSeam = await fetch(`${API_BASE}/api/seam-results`);
+    if (!resSeam.ok) { appendLog('detect-log', '[ERROR] Could not load seam results'); return; }
+    const seamData = await resSeam.json();
+    
+    // 2. Fetch Point Cloud (subsampled to 20k points for performance)
+    const resPC = await fetch(`${API_BASE}/api/pointcloud?max_points=20000`);
+    if (!resPC.ok) { return; }
+    const pcData = await resPC.json();
+    
+    // 3. Update UI Text
+    if (seamData.seam1) {
+        document.getElementById('seam-results').innerHTML = `
+            <div style="margin-bottom:8px"><strong>Seam 1:</strong> <span style="font-family:monospace">L=${seamData.seam1.start.map(v=>v.toFixed(3)).join(',')} → R=${seamData.seam1.end.map(v=>v.toFixed(3)).join(',')}</span></div>
+            <div><strong>Seam 2:</strong> <span style="font-family:monospace">L=${seamData.seam2.start.map(v=>v.toFixed(3)).join(',')} → R=${seamData.seam2.end.map(v=>v.toFixed(3)).join(',')}</span></div>
+        `;
+    }
+    if (seamData.planes) {
+        document.getElementById('seam-planes').innerHTML = `
+            <div><strong>Base Plane:</strong> ${seamData.planes.base.inlier_count} pts</div>
+            <div><strong>Stem Face 1:</strong> ${seamData.planes.stem1.inlier_count} pts</div>
+            <div><strong>Stem Face 2:</strong> ${seamData.planes.stem2.inlier_count} pts</div>
+        `;
+    }
+    
+    // 4. Render 3D Plot
+    renderDetectVisualization(pcData, seamData);
+}
+
+function renderDetectVisualization(pcData, seamData) {
+  const { points } = pcData;
+  const traces = [
+    {
+      type: 'scatter3d', mode: 'markers',
+      x: points.x, y: points.y, z: points.z,
+      name: 'Point Cloud',
+      marker: { size: 1.5, color: points.colors, opacity: 0.8 },
+    }
+  ];
+
+  if (seamData.seam1) {
+      // Seam 1
+      traces.push({
+          type: 'scatter3d', mode: 'lines',
+          x: [seamData.seam1.start[0], seamData.seam1.end[0]],
+          y: [seamData.seam1.start[1], seamData.seam1.end[1]],
+          z: [seamData.seam1.start[2], seamData.seam1.end[2]],
+          line: {color: '#f87171', width: 6}, name: 'Seam 1',
+      });
+      // Seam 1 Left Toolpath
+      traces.push({
+          type: 'scatter3d', mode: 'lines',
+          x: [seamData.seam1.start_left[0], seamData.seam1.end_left[0]],
+          y: [seamData.seam1.start_left[1], seamData.seam1.end_left[1]],
+          z: [seamData.seam1.start_left[2], seamData.seam1.end_left[2]],
+          line: {color: '#4ade80', width: 4, dash: 'dash'}, name: 'S1 Left',
+      });
+      // Seam 1 Right Toolpath
+      traces.push({
+          type: 'scatter3d', mode: 'lines',
+          x: [seamData.seam1.start_right[0], seamData.seam1.end_right[0]],
+          y: [seamData.seam1.start_right[1], seamData.seam1.end_right[1]],
+          z: [seamData.seam1.start_right[2], seamData.seam1.end_right[2]],
+          line: {color: '#fbbf24', width: 4, dash: 'dash'}, name: 'S1 Right',
+      });
+      
+      // Seam 2
+      traces.push({
+          type: 'scatter3d', mode: 'lines',
+          x: [seamData.seam2.start[0], seamData.seam2.end[0]],
+          y: [seamData.seam2.start[1], seamData.seam2.end[1]],
+          z: [seamData.seam2.start[2], seamData.seam2.end[2]],
+          line: {color: '#60a5fa', width: 6}, name: 'Seam 2',
+      });
+      // Seam 2 Left Toolpath
+      traces.push({
+          type: 'scatter3d', mode: 'lines',
+          x: [seamData.seam2.start_left[0], seamData.seam2.end_left[0]],
+          y: [seamData.seam2.start_left[1], seamData.seam2.end_left[1]],
+          z: [seamData.seam2.start_left[2], seamData.seam2.end_left[2]],
+          line: {color: '#4ade80', width: 4, dash: 'dash'}, name: 'S2 Left',
+      });
+      // Seam 2 Right Toolpath
+      traces.push({
+          type: 'scatter3d', mode: 'lines',
+          x: [seamData.seam2.start_right[0], seamData.seam2.end_right[0]],
+          y: [seamData.seam2.start_right[1], seamData.seam2.end_right[1]],
+          z: [seamData.seam2.start_right[2], seamData.seam2.end_right[2]],
+          line: {color: '#fbbf24', width: 4, dash: 'dash'}, name: 'S2 Right',
+      });
+  }
+
+  const layout = {
+    paper_bgcolor: '#09090f', plot_bgcolor: '#09090f',
+    font: { color: '#c0c0d8', family: 'Inter' },
+    scene: {
+      bgcolor: '#09090f',
+      xaxis: { gridcolor: '#1e1e30', zerolinecolor: '#2e2e4a', title: 'X (m)' },
+      yaxis: { gridcolor: '#1e1e30', zerolinecolor: '#2e2e4a', title: 'Y (m)' },
+      zaxis: { gridcolor: '#1e1e30', zerolinecolor: '#2e2e4a', title: 'Z (m)' },
+      camera: { eye: { x: 1.8, y: 1.8, z: 1.2 } },
+    },
+    legend: { bgcolor: 'rgba(24,24,40,0.8)', bordercolor: '#2e2e4a', borderwidth: 1 },
+    margin: { l: 0, r: 0, t: 10, b: 0 },
+  };
+
+  if(!document.getElementById('detect-plotly-container').hasChildNodes()) {
+      Plotly.newPlot('detect-plotly-container', traces, layout, { responsive: true, displaylogo: false });
+  } else {
+      Plotly.react('detect-plotly-container', traces, layout);
+  }
+}
+
+// ── Step 5: Weld ──────────────────────────────────────────────────────────────
 async function startWeld() {
   document.getElementById('btn-weld').disabled = true;
   document.getElementById('btn-weld').textContent = '⏳ Welding…';

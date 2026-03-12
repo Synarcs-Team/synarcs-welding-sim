@@ -1,8 +1,12 @@
 {
-    "joint_type": "butt",
-    "w": 0.2,
-    "l": 0.3,
-    "t": 0.05,
-    "gap": 0.01,
+    "joint_type": "tee",
+    "bw": 0.15,
+    "bl": 0.15,
+    "bt": 0.025,
+    "sh": 0.15,
+    "st": 0.025,
+    "rotation": 0,
+    "tilt": 30,
+    "flip": false,
     "sim_engine": "pybullet"
 }

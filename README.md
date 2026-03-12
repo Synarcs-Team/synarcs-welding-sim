@@ -19,6 +19,7 @@ If you want to leverage the **NVIDIA Isaac Sim** engine for GPU-accelerated high
 - **Automated Scanning**: Headless orchestration of the robotic arm to navigate and capture multi-angle depth point clouds of the parameterized joint.
 - **Point Cloud Processing**: Automatic merging and visualization of the scanned point cloud data natively in your browser.
 - **Modular Pipeline**: Built using a modern Python package structure (`src/welding_simulator`) designed to support pluggable simulation engines and computer vision seam detection algorithms.
+- **Intelligent Seam Detection**: RANSAC-based geometric analysis to automatically identify weld seams on complex joints, producing precise toolpaths for robotic cells. [Read Technique →](docs/seam_detection_alg.md)
 
 ## System Requirements
 
@@ -65,7 +66,7 @@ Navigate to `http://localhost:8000` in your web browser.
 
 ### The Simulation Pipeline
 
-The interface guides you through three distinct simulation stages:
+The interface guides you through the following simulation stages:
 
 #### 1. Configure
 Select your joint type, compute engine, and use the parametric sliders to adjust dimensions interactively. View the live 3D preview and click **Save Configuration**.
@@ -77,10 +78,15 @@ Click **Start Scanning**. This triggers a headless simulation backend orchestrat
 
 ![Scan Step Complete](docs/images/scan_step.png)
 
-#### 3. Process
-Click **Merge Point Clouds**. The backend processes the 5 distinct raw captures output by the previous step and merges them into a solitary 3D reconstruction using Open3D. You can inspect the dense point cloud directly in the browser viewport.
-
 ![Process Step Point Cloud Visualization](docs/images/process_step.png)
+
+#### 4. Detect
+Apply our custom seam detection algorithm to identify the base-stem intersection. The backend uses constrained RANSAC plane fitting to calculate the precise weld toolpaths from the merged point cloud. [Learn how it works →](docs/seam_detection_alg.md)
+
+![Seam Detection Result](docs/images/detect_step.png)
+
+#### 5. Weld (Coming Soon)
+Simulate the robotic welding process based on the detected toolpaths. This module is currently under development to integrate trajectory planning with the detected seams.
 
 ## Developer Documentation & Architecture
 
