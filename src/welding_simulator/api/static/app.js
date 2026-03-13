@@ -731,6 +731,22 @@ async function startSeamDetection() {
         
         // Load combined point cloud and seams
         await loadSeamResults();
+    } else if (line.startsWith('[EXIT]')) {
+        btn.disabled = false;
+        clearInterval(fakeTimer);
+        if (btn.textContent !== '✓ Detected') {
+            btn.textContent = '▶ Retry Detection';
+            
+            const ph = document.getElementById('detect-pc-placeholder');
+            if (ph) ph.style.display = 'none';
+            const pcs = document.getElementById('detect-pc-section');
+            if (pcs) pcs.style.display = 'flex';
+            
+            document.getElementById('seam-results-card')?.classList.remove('hidden');
+            document.getElementById('seam-planes-card')?.classList.remove('hidden');
+            
+            await loadSeamResults();
+        }
     }
   };
   ws.onerror = () => {
@@ -754,18 +770,24 @@ async function loadSeamResults() {
     const pcData = await resPC.json();
     
     // 3. Update UI Text
-    if (seamData.seam1) {
-        document.getElementById('seam-results').innerHTML = `
-            <div style="margin-bottom:8px"><strong>Seam 1:</strong> <span style="font-family:monospace">L=${seamData.seam1.start.map(v=>v.toFixed(3)).join(',')} → R=${seamData.seam1.end.map(v=>v.toFixed(3)).join(',')}</span></div>
-            <div><strong>Seam 2:</strong> <span style="font-family:monospace">L=${seamData.seam2.start.map(v=>v.toFixed(3)).join(',')} → R=${seamData.seam2.end.map(v=>v.toFixed(3)).join(',')}</span></div>
-        `;
-    }
-    if (seamData.planes) {
-        document.getElementById('seam-planes').innerHTML = `
-            <div><strong>Base Plane:</strong> ${seamData.planes.base.inlier_count} pts</div>
-            <div><strong>Stem Face 1:</strong> ${seamData.planes.stem1.inlier_count} pts</div>
-            <div><strong>Stem Face 2:</strong> ${seamData.planes.stem2.inlier_count} pts</div>
-        `;
+    if (seamData.error) {
+        document.getElementById('seam-results').innerHTML = `<div style="color:#f87171"><strong>Error:</strong> ${seamData.error}</div>`;
+        document.getElementById('seam-planes').innerHTML = '';
+        document.getElementById('detect-status-text').textContent = 'Mathematical detection failed.';
+    } else {
+        if (seamData.seam1) {
+            document.getElementById('seam-results').innerHTML = `
+                <div style="margin-bottom:8px"><strong>Seam 1:</strong> <span style="font-family:monospace">L=${seamData.seam1.start.map(v=>v.toFixed(3)).join(',')} → R=${seamData.seam1.end.map(v=>v.toFixed(3)).join(',')}</span></div>
+                <div><strong>Seam 2:</strong> <span style="font-family:monospace">L=${seamData.seam2.start.map(v=>v.toFixed(3)).join(',')} → R=${seamData.seam2.end.map(v=>v.toFixed(3)).join(',')}</span></div>
+            `;
+        }
+        if (seamData.planes) {
+            document.getElementById('seam-planes').innerHTML = `
+                <div><strong>Base Plane:</strong> ${seamData.planes.base.inlier_count} pts</div>
+                <div><strong>Stem Face 1:</strong> ${seamData.planes.stem1.inlier_count} pts</div>
+                <div><strong>Stem Face 2:</strong> ${seamData.planes.stem2.inlier_count} pts</div>
+            `;
+        }
     }
     
     // 4. Render 3D Plot
