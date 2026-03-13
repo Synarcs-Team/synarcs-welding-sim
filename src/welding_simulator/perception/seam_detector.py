@@ -222,6 +222,7 @@ def run_seam_detection(log_cb=None):
         A2, B2, v2 = seam_segment_from_planes(P, n1, d1, n3, d3)
     except Exception as e:
         _log(f"[ERROR] Seam computation failed: {e}", log_cb)
+        print(f"CRITICAL SEAM ERROR: {e}", file=sys.stderr, flush=True)
         error_res = {"error": f"Seam mathematical computation failed: {e}"}
         with open(os.path.join(DATA_DIR, "seam_results.json"), "w") as f:
             json.dump(error_res, f, indent=4)
