@@ -765,9 +765,19 @@ async function loadSeamResults() {
     const seamData = await resSeam.json();
     
     // 2. Fetch Point Cloud (subsampled to 20k points for performance)
-    const resPC = await fetch(`${API_BASE}/api/pointcloud?max_points=20000`);
-    if (!resPC.ok) { return; }
-    const pcData = await resPC.json();
+    //    Fall back to the globally cached pcData loaded during the Process step
+    //    so the 3D view never silently stays blank on a transient cloud fetch failure.
+    let renderPcData = pcData;
+    try {
+        const resPC = await fetch(`${API_BASE}/api/pointcloud?max_points=20000`);
+        if (resPC.ok) {
+            renderPcData = await resPC.json();
+        } else {
+            appendLog('detect-log', '[WARN] Could not re-fetch point cloud, using cached data.');
+        }
+    } catch(e) {
+        appendLog('detect-log', '[WARN] Point cloud fetch error, using cached data.');
+    }
     
     // 3. Update UI Text
     if (seamData.error) {
@@ -790,8 +800,10 @@ async function loadSeamResults() {
         }
     }
     
-    // 4. Render 3D Plot
-    renderDetectVisualization(pcData, seamData);
+    // 4. Render 3D Plot — always run, even on error, using best available pcData
+    if (renderPcData) {
+        renderDetectVisualization(renderPcData, seamData);
+    }
 }
 
 function renderDetectVisualization(pcData, seamData) {
