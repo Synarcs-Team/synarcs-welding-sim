@@ -44,3 +44,21 @@ def test_scan_video_404():
         
     response = client.get("/api/scan-video")
     assert response.status_code == 404
+
+def test_seam_results_error_fallback():
+    """Verify that if the detector leaves an error JSON, the API returns it correctly."""
+    error_data = {"error": "Seam mathematical computation failed: mock error"}
+    results_path = DATA_DIR / "seam_results.json"
+    
+    # Ensure dir exists and write the fake error file
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    with open(results_path, "w") as f:
+        json.dump(error_data, f)
+        
+    try:
+        response = client.get("/api/seam-results")
+        assert response.status_code == 200
+        assert "error" in response.json()
+        assert "mock error" in response.json()["error"]
+    finally:
+        results_path.unlink(missing_ok=True)
