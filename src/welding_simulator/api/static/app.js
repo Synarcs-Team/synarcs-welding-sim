@@ -603,6 +603,11 @@ async function runProcess() {
           btnDetect.classList.add('btn-primary');
           btnDetect.classList.remove('btn-secondary');
       }
+      // Show download button
+      const btnDownload = document.getElementById('btn-download');
+      if (btnDownload) {
+          btnDownload.classList.remove('hidden');
+      }
       loadPointCloud(50000);
     }
   };

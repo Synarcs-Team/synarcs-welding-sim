@@ -1061,6 +1061,9 @@
               </div>
             </div>
 
+            <button class="btn btn-primary hidden" id="btn-download" onclick="downloadPointCloud()" style="width:100%;justify-content:center;margin-top:12px;">⬇ Download (.pcd)</button>
+
+
           </div><!-- /step2-left -->
 
           <!-- RIGHT: Full-height 3D viewer -->
@@ -1086,8 +1089,7 @@
 
         <!-- Sticky footer -->
         <div class="scan-bar" style="display:flex;align-items:center;gap:12px;">
-          <button class="btn btn-primary hidden" id="btn-download" onclick="downloadPointCloud()">⬇ Download (.pcd)</button>
-          <button class="btn btn-secondary hidden" id="btn-to-detect" onclick="goStep(4)" disabled style="padding:12px 32px;font-size:1rem;">Detect Seams →</button>
+          <button class="btn btn-secondary hidden" id="btn-to-detect" onclick="goStep(4)" disabled style="padding:12px 32px;font-size:1rem;margin-left:auto;">Detect Seams →</button>
         </div>
       </div>
 
