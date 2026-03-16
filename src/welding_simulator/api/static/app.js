@@ -12,6 +12,7 @@ const WS_BASE = isLocal ? `ws://${location.host}` : `wss://${CLOUD_RUN_URL}`;
 // ── State ─────────────────────────────────────────────────────────────────────
 let currentStep = 1;
 let pcData = null;   // cached point cloud response
+let detectPcTotal = 0; // total points available in cloud (for detect step label)
 let currentJointType = 'tee';
 
 // ── Joint Definitions ─────────────────────────────────────────────────────────
@@ -637,8 +638,13 @@ function reloadPointCloud(val) {
 
 function updateDetectDensityLabel(val) {
   const n = parseInt(val);
-  document.getElementById('detect-density-label').textContent =
-    n >= 500000 ? 'All points' : n.toLocaleString() + ' points';
+  // If we know the cloud's total and the slider exceeds it, show "All points".
+  if (detectPcTotal > 0 && n >= detectPcTotal) {
+    document.getElementById('detect-density-label').textContent = 'All points';
+  } else {
+    document.getElementById('detect-density-label').textContent =
+      n >= 500000 ? 'All points' : n.toLocaleString() + ' points';
+  }
 }
 
 function reloadDetectPointCloud(val) {
@@ -800,6 +806,9 @@ async function loadSeamResults(maxPts = -1) {
         const resPC = await fetch(url);
         if (resPC.ok) {
             renderPcData = await resPC.json();
+            
+            // Cache total so the slider label stays accurate while dragging.
+            detectPcTotal = renderPcData.total_points;
             
             // Update the stats card text
             const statsEl = document.getElementById('detect-pc-stats');
