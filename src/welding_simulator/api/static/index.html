@@ -1128,6 +1128,22 @@
                 <!-- Filled via JS -->
               </div>
             </div>
+
+            <div id="detect-pc-stats-card" class="card hidden">
+              <h3>Point Cloud Info</h3>
+              <div id="detect-pc-stats" style="font-size:.85rem;color:var(--muted);line-height:1.8;"></div>
+            </div>
+
+            <div id="detect-density-card" class="card hidden">
+              <h3>Display Density</h3>
+              <div class="param-row" style="margin-bottom:0;">
+                <input type="range" id="detect-density-slider" min="1000" max="500000" step="5000" value="50000"
+                  oninput="updateDetectDensityLabel(this.value)" onchange="reloadDetectPointCloud(this.value)" />
+                <span id="detect-density-label" class="pc-info"
+                  style="white-space:nowrap;min-width:72px;font-size:.82rem;flex-shrink:0;">All points</span>
+              </div>
+            </div>
+
           </div><!-- /step2-left -->
 
           <!-- RIGHT: 3D viewer -->

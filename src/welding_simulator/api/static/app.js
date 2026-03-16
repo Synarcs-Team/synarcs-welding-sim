@@ -408,6 +408,8 @@ function resetSession() {
   if (dpcs) dpcs.style.display = 'none';
   document.getElementById('seam-results-card')?.classList.add('hidden');
   document.getElementById('seam-planes-card')?.classList.add('hidden');
+  document.getElementById('detect-pc-stats-card')?.classList.add('hidden');
+  document.getElementById('detect-density-card')?.classList.add('hidden');
   const btnWeld = document.getElementById('btn-to-weld');
   if (btnWeld) { btnWeld.classList.add('hidden'); btnWeld.disabled = true; btnWeld.textContent = 'Proceed to Weld →'; btnWeld.classList.remove('btn-primary'); btnWeld.classList.add('btn-secondary'); }
 
@@ -633,6 +635,18 @@ function reloadPointCloud(val) {
   loadPointCloud(max);
 }
 
+function updateDetectDensityLabel(val) {
+  const n = parseInt(val);
+  document.getElementById('detect-density-label').textContent =
+    n >= 500000 ? 'All points' : n.toLocaleString() + ' points';
+}
+
+function reloadDetectPointCloud(val) {
+  const max = parseInt(val) >= 500000 ? 0 : parseInt(val);
+  // Reload seams but pass the new density limit
+  loadSeamResults(max);
+}
+
 async function loadPointCloud(maxPts) {
   const url = maxPts > 0 ? `${API_BASE}/api/pointcloud?max_points=${maxPts}` : `${API_BASE}/api/pointcloud`;
   const res = await fetch(url);
@@ -724,6 +738,8 @@ async function startSeamDetection() {
         
         document.getElementById('seam-results-card')?.classList.remove('hidden');
         document.getElementById('seam-planes-card')?.classList.remove('hidden');
+        document.getElementById('detect-pc-stats-card')?.classList.remove('hidden');
+        document.getElementById('detect-density-card')?.classList.remove('hidden');
         
         const btnWeld = document.getElementById('btn-to-weld');
         if (btnWeld) {
@@ -749,8 +765,10 @@ async function startSeamDetection() {
             
             document.getElementById('seam-results-card')?.classList.remove('hidden');
             document.getElementById('seam-planes-card')?.classList.remove('hidden');
+            document.getElementById('detect-pc-stats-card')?.classList.remove('hidden');
+            document.getElementById('detect-density-card')?.classList.remove('hidden');
             
-            await loadSeamResults();
+            await loadSeamResults(parseInt(document.getElementById('detect-density-slider').value) >= 500000 ? 0 : parseInt(document.getElementById('detect-density-slider').value));
         }
     }
   };
@@ -763,20 +781,31 @@ async function startSeamDetection() {
   };
 }
 
-async function loadSeamResults() {
+async function loadSeamResults(maxPts = -1) {
+    // Determine target density from the Detect slider if not explicitly passed
+    if (maxPts === -1) {
+        const sliderVal = document.getElementById('detect-density-slider')?.value;
+        maxPts = sliderVal && parseInt(sliderVal) < 500000 ? parseInt(sliderVal) : 0;
+    }
+
     // 1. Fetch Seam Results
     const resSeam = await fetch(`${API_BASE}/api/seam-results`);
     if (!resSeam.ok) { appendLog('detect-log', '[ERROR] Could not load seam results'); return; }
     const seamData = await resSeam.json();
     
-    // 2. Fetch Point Cloud (subsampled to 20k points for performance)
-    //    Fall back to the globally cached pcData loaded during the Process step
-    //    so the 3D view never silently stays blank on a transient cloud fetch failure.
+    // 2. Fetch Point Cloud
     let renderPcData = pcData;
     try {
-        const resPC = await fetch(`${API_BASE}/api/pointcloud?max_points=20000`);
+        const url = maxPts > 0 ? `${API_BASE}/api/pointcloud?max_points=${maxPts}` : `${API_BASE}/api/pointcloud`;
+        const resPC = await fetch(url);
         if (resPC.ok) {
             renderPcData = await resPC.json();
+            
+            // Update the stats card text
+            const statsEl = document.getElementById('detect-pc-stats');
+            if (statsEl) {
+                statsEl.textContent = `Showing ${renderPcData.shown_points.toLocaleString()} / ${renderPcData.total_points.toLocaleString()} points`;
+            }
         } else {
             appendLog('detect-log', '[WARN] Could not re-fetch point cloud, using cached data.');
         }
