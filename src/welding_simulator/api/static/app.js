@@ -704,12 +704,35 @@ function downloadPointCloud() {
 }
 
 // ── Step 4: Seam Detection ──────────────────────────────────────────────────
+
+const ALG_DESCRIPTIONS = {
+  triplane_ransac: 'RANSAC plane fitting on base + two stem faces.',
+  adaptive_slice:  'PCA histogram slicing — orientation independent.',
+};
+
+function getSelectedAlgorithm() {
+  return document.querySelector('input[name="detect-alg"]:checked')?.value || 'triplane_ransac';
+}
+
+function onAlgorithmChange() {
+  const alg = getSelectedAlgorithm();
+  const statusEl = document.getElementById('detect-status-text');
+  if (statusEl && !statusEl.textContent.includes('Detecting') && !statusEl.textContent.includes('detected')) {
+    statusEl.textContent = ALG_DESCRIPTIONS[alg] || '';
+  }
+}
+
 async function startSeamDetection() {
+  const alg = getSelectedAlgorithm();
+  const algLabel = alg === 'adaptive_slice' ? 'AdaptiveSlice' : 'Triplane RANSAC';
   const btn = document.getElementById('btn-detect');
   btn.disabled = true;
   btn.textContent = '⏳ Detecting…';
   document.getElementById('detect-log').innerHTML = '';
-  document.getElementById('detect-status-text').textContent = 'Running RANSAC plane fitting…';
+  document.getElementById('detect-status-text').textContent = `Running ${algLabel}…`;
+
+  // Disable radio buttons while running
+  document.querySelectorAll('input[name="detect-alg"]').forEach(r => r.disabled = true);
 
   const progWrap = document.getElementById('detect-progress-wrap');
   const progBar = document.getElementById('detect-prog');
@@ -721,7 +744,7 @@ async function startSeamDetection() {
     if (fakePct < 85) { fakePct += Math.random() * 8; if (progBar) progBar.style.width = fakePct + '%'; }
   }, 300);
 
-  const ws = new WebSocket(`${WS_BASE}/ws/seam-detect`);
+  const ws = new WebSocket(`${WS_BASE}/ws/seam-detect?algorithm=${alg}`);
 
   ws.onmessage = async e => {
     const line = e.data;
@@ -734,8 +757,10 @@ async function startSeamDetection() {
         if (progBar) progBar.style.width = '100%';
         if (progLbl) progLbl.textContent = 'Done!';
         btn.textContent = '✓ Detected';
-        document.getElementById('detect-status-text').textContent = 'Weld seams successfully detected.';
+        document.getElementById('detect-status-text').textContent = `Weld seams successfully detected using ${algLabel}.`;
         document.getElementById('detect-badge').classList.remove('hidden');
+        // Re-enable radio buttons
+        document.querySelectorAll('input[name="detect-alg"]').forEach(r => r.disabled = false);
         
         const ph = document.getElementById('detect-pc-placeholder');
         if (ph) ph.style.display = 'none';
@@ -783,7 +808,9 @@ async function startSeamDetection() {
     appendLog('detect-log', '[ERROR] WebSocket failed');
     btn.disabled = false;
     btn.textContent = '▶ Detect Seams';
-    document.getElementById('detect-status-text').textContent = 'Error — please retry.';
+    document.getElementById('detect-status-text').textContent = `Error — please retry.`;
+    // Re-enable radio buttons on error
+    document.querySelectorAll('input[name="detect-alg"]').forEach(r => r.disabled = false);
   };
 }
 
@@ -844,14 +871,38 @@ async function loadSeamResults(maxPts = -1) {
                 <div><strong>Seam 2:</strong> <span style="font-family:monospace">L=${seamData.seam2.start.map(v=>v.toFixed(3)).join(',')} → R=${seamData.seam2.end.map(v=>v.toFixed(3)).join(',')}</span></div>
             `;
         }
+        // Fitted Planes card — show RANSAC inliers OR AdaptiveSlice slice info
+        const planesCardEl = document.getElementById('seam-planes-card');
+        const planesBodyEl = document.getElementById('seam-planes');
         if (seamData.planes) {
-            document.getElementById('seam-planes').innerHTML = `
+            // Triplane RANSAC — show plane inlier counts
+            if (planesCardEl) {
+                planesCardEl.querySelector('h3').textContent = 'Fitted Planes';
+                planesCardEl.classList.remove('hidden');
+            }
+            planesBodyEl.innerHTML = `
                 <div><strong>Base Plane:</strong> ${seamData.planes.base.inlier_count} pts</div>
                 <div><strong>Stem Face 1:</strong> ${seamData.planes.stem1.inlier_count} pts</div>
                 <div><strong>Stem Face 2:</strong> ${seamData.planes.stem2.inlier_count} pts</div>
             `;
+        } else if (seamData.algorithm_info) {
+            // AdaptiveSlice — show slice + timing info
+            const ai = seamData.algorithm_info;
+            if (planesCardEl) {
+                planesCardEl.querySelector('h3').textContent = 'Algorithm Info';
+                planesCardEl.classList.remove('hidden');
+            }
+            planesBodyEl.innerHTML = `
+                <div><strong>Algorithm:</strong> ${ai.name}</div>
+                <div><strong>Valid slices used:</strong> ${ai.n_slices}</div>
+                <div><strong>Processing time:</strong> ${ai.timing_ms.toFixed(1)} ms</div>
+                <div><strong>Base level:</strong> ${ai.base_level.toFixed(3)}</div>
+            `;
+        } else {
+            if (planesBodyEl) planesBodyEl.innerHTML = '';
         }
     }
+
     
     // 4. Render 3D Plot — always run, even on error, using best available pcData
     if (renderPcData) {

@@ -1105,7 +1105,24 @@
                 <h3 style="margin-bottom:0;">Seam Detection</h3>
                 <span id="detect-badge" class="badge badge-wait hidden">✓ Detected</span>
               </div>
-              <div id="detect-status-text" style="font-size:.88rem;color:var(--muted);margin-bottom:14px;">Apply RANSAC plane fitting to detect weld seams.</div>
+
+              <!-- Algorithm selector -->
+              <div style="display:flex;gap:10px;margin-bottom:10px;">
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:.85rem;color:var(--text);">
+                  <input type="radio" name="detect-alg" id="alg-triplane" value="triplane_ransac" checked
+                    onchange="onAlgorithmChange()" style="accent-color:var(--accent);">
+                  Triplane RANSAC
+                </label>
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:.85rem;color:var(--text);">
+                  <input type="radio" name="detect-alg" id="alg-adaptive" value="adaptive_slice"
+                    onchange="onAlgorithmChange()" style="accent-color:var(--accent);">
+                  AdaptiveSlice
+                </label>
+              </div>
+
+              <div id="detect-status-text" style="font-size:.85rem;color:var(--muted);margin-bottom:14px;">
+                RANSAC plane fitting on base + two stem faces.
+              </div>
               <button class="btn btn-primary" id="btn-detect" onclick="startSeamDetection()" style="width:100%;justify-content:center;">▶ Detect Seams</button>
               <div id="detect-progress-wrap" style="display:none;margin-top:12px;">
                 <div class="progress-bar">
@@ -1114,6 +1131,7 @@
                 <div style="font-size:.78rem;color:var(--muted);margin-top:4px;" id="detect-progress-label">Detecting…</div>
               </div>
             </div>
+
 
             <div id="seam-results-card" class="card hidden">
               <h3>Detected Seams</h3>

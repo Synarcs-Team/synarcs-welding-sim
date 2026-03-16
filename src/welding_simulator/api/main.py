@@ -282,9 +282,16 @@ async def download_pcd():
 
 # ── Step 4: Seam Detection (WebSocket streams log) ────────────────────────────
 @app.websocket("/ws/seam-detect")
-async def ws_seam_detect(ws: WebSocket):
-    from welding_simulator.perception.seam_detector import run_seam_detection
+async def ws_seam_detect(ws: WebSocket, algorithm: str = "triplane_ransac"):
+    """
+    algorithm: 'triplane_ransac' (default) | 'adaptive_slice'
+    """
+    if algorithm == "adaptive_slice":
+        from welding_simulator.perception.adaptive_slice import run_seam_detection
+    else:
+        from welding_simulator.perception.seam_detector import run_seam_detection
     await stream_callable_with_logging(ws, run_seam_detection, {}, "seam_detect")
+
 
 @app.get("/api/seam-results")
 async def seam_results():
