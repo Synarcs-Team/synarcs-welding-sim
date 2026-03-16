@@ -806,6 +806,16 @@ async function loadSeamResults(maxPts = -1) {
             if (statsEl) {
                 statsEl.textContent = `Showing ${renderPcData.shown_points.toLocaleString()} / ${renderPcData.total_points.toLocaleString()} points`;
             }
+            // Sync the density slider label with the actual points rendered.
+            // If the slider requested more points than the cloud contains, show "All points".
+            const densityLabelEl = document.getElementById('detect-density-label');
+            if (densityLabelEl) {
+                if (renderPcData.shown_points >= renderPcData.total_points) {
+                    densityLabelEl.textContent = 'All points';
+                } else {
+                    densityLabelEl.textContent = renderPcData.shown_points.toLocaleString() + ' points';
+                }
+            }
         } else {
             appendLog('detect-log', '[WARN] Could not re-fetch point cloud, using cached data.');
         }
